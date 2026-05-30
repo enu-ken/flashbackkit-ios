@@ -1,0 +1,7 @@
+// 実機ビルド用の署名設定テンプレート。
+// このファイルを Signing.xcconfig にコピーし、自分の Apple Developer Team ID を記入する。
+//   cp Example/Signing.example.xcconfig Example/Signing.xcconfig
+// Team ID は Xcode の Signing & Capabilities、または
+// https://developer.apple.com/account → Membership で確認できる。
+// Signing.xcconfig は .gitignore 済み（コミットされない）。
+DEVELOPMENT_TEAM =
