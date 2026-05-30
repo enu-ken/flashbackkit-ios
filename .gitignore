@@ -19,3 +19,6 @@ Package.resolved
 # Misc
 *.log
 .claude/settings.local.json
+
+# ローカルの進捗メモ（git 管理しない作業用ロードマップ）
+ROADMAP.md
