@@ -11,7 +11,6 @@ import FlashbackKit
 /// 再生したとき、この数字が動いていれば「トリガー直前の N 秒」が録れている証拠になる。
 struct ContentView: View {
     @State private var startDate = Date()
-    @State private var counter = 0
 
     var body: some View {
         VStack(spacing: 24) {
@@ -34,9 +33,6 @@ struct ContentView: View {
             Text("右下の 🐞 ボタンでレポート UI を開く")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-
-            Stepper("ホスト操作カウンタ: \(counter)", value: $counter)
-                .padding(.horizontal, 40)
         }
         .onAppear {
             // Webhook を設定するとここから Slack へ送れる。
