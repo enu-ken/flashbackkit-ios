@@ -8,6 +8,9 @@ xcuserdata/
 DerivedData/
 build/
 
+# ローカル署名設定（各自の Team ID。コミットしない）
+Example/Signing.xcconfig
+
 # Swift Package Manager
 .build/
 .swiftpm/

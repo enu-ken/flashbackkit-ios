@@ -1,0 +1,8 @@
+// FlashbackExample のビルド設定ベース。
+//
+// 署名（DEVELOPMENT_TEAM 等）はリポジトリに含めず、各自がローカルに作る
+// Signing.xcconfig に置く。下の optional include（"?"）は、ファイルが無くても
+// 警告/エラーにならない。Simulator ビルドは署名不要なのでこのままで動く。
+// 実機ビルドする人は Signing.example.xcconfig をコピーして自分の Team ID を記入:
+//   cp Example/Signing.example.xcconfig Example/Signing.xcconfig
+#include? "Signing.xcconfig"

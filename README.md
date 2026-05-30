@@ -37,6 +37,22 @@ Flashback.start(
 )
 ```
 
+## Example アプリ
+
+`Example/FlashbackExample.xcodeproj` に仮UIループ確認用のホストアプリがある。
+
+- **Simulator**: そのままビルド可（署名不要）。ただし ReplayKit の画面キャプチャは
+  Simulator では動かないため、録画は無効化され clip なしでループだけ動く。
+- **実機**: コード署名が必要。Team ID はリポジトリに含めないので、各自で設定する:
+
+  ```sh
+  cp Example/Signing.example.xcconfig Example/Signing.xcconfig
+  # Signing.xcconfig を開き DEVELOPMENT_TEAM に自分の Apple Developer Team ID を記入
+  ```
+
+  `Signing.xcconfig` は `.gitignore` 済み。`Config.xcconfig` が optional include で
+  読み込むため、未作成でも Simulator ビルドは警告なく通る。
+
 ## MVP Scope
 
 シェイク起動 / 直前録画 / コメント入力 / AI 要約 / Slack 送信
