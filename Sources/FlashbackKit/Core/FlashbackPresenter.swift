@@ -60,6 +60,7 @@ final class FlashbackPresenter {
 
         let report = ReportView(
             clipURL: clipURL,
+            device: .current(),                           // @MainActor 採取（本メソッドは @MainActor）
             onSend: { onSend($0, $1) },                   // 後段（dismiss / status）は呼び出し側が制御
             onCancel: { [weak self] in self?.dismissReport() }
         )

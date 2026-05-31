@@ -6,6 +6,9 @@ import SwiftUI
 /// `clipURL` が無い場合（Simulator / 録画不可）はコメントのみの最小フォームになる。
 struct ReportView: View {
     let clipURL: URL?
+    /// レポートに同梱される端末情報（送信前に QA が確認できるよう表示する）。
+    /// `DeviceInfo.current()` は `@MainActor` なので、呼び出し側（Presenter）で採取して渡す。
+    let device: DeviceInfo
     /// 送信。クリップがある場合は選択範囲（秒）を伴う。無い場合は nil。
     let onSend: (String, ClosedRange<Double>?) -> Void
     let onCancel: () -> Void
@@ -38,6 +41,8 @@ struct ReportView: View {
                                     .stroke(.secondary.opacity(0.3))
                             )
                     }
+
+                    DeviceInfoCard(device: device)
                 }
                 .padding()
             }
@@ -54,6 +59,37 @@ struct ReportView: View {
                     .disabled(comment.isEmpty)
                 }
             }
+        }
+    }
+}
+
+/// レポートに同梱される端末情報の読み取り専用カード。
+private struct DeviceInfoCard: View {
+    let device: DeviceInfo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("レポートに含まれる情報")
+                .font(.subheadline.weight(.semibold))
+            VStack(alignment: .leading, spacing: 4) {
+                row("iphone", device.displayModel)
+                row("gearshape", "\(device.systemName) \(device.systemVersion)")
+                row("app.badge", "v\(device.appVersion) (\(device.buildNumber))")
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private func row(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol)
+                .foregroundStyle(.secondary)
+                .frame(width: 18)
+            Text(text)
+                .font(.callout)
+            Spacer(minLength: 0)
         }
     }
 }
