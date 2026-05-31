@@ -212,69 +212,74 @@ private struct FilmstripTrimmer: View {
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
+            let height = geo.size.height
             let usable = max(width - handleWidth * 2, 1)
             let startX = handleWidth + xOffset(for: selection.lowerBound, usable: usable)
             let endX = handleWidth + xOffset(for: selection.upperBound, usable: usable)
 
             ZStack(alignment: .leading) {
-                filmstrip
-                    .frame(width: width)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                filmstrip(width: width, height: height)
 
                 // 選択外を暗く。
-                dim(width: startX)
-                dim(width: width - endX).offset(x: endX)
+                dim(width: startX, height: height)
+                dim(width: width - endX, height: height).offset(x: endX)
 
                 // 選択枠。
                 RoundedRectangle(cornerRadius: 6)
                     .stroke(Color.yellow, lineWidth: 3)
-                    .frame(width: max(endX - startX, 0))
+                    .frame(width: max(endX - startX, 0), height: height)
                     .offset(x: startX)
 
-                handle(at: startX, usable: usable, isStart: true)
-                handle(at: endX, usable: usable, isStart: false)
+                handle(at: startX, height: height, usable: usable, isStart: true)
+                handle(at: endX, height: height, usable: usable, isStart: false)
 
                 // 再生ヘッド。
                 if duration > 0 {
                     Rectangle()
                         .fill(.white)
-                        .frame(width: 2)
+                        .frame(width: 2, height: height)
                         .offset(x: handleWidth + xOffset(for: playhead, usable: usable))
                         .allowsHitTesting(false)
                 }
             }
+            .frame(width: width, height: height)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
             .coordinateSpace(name: "strip")
         }
     }
 
-    private var filmstrip: some View {
-        HStack(spacing: 0) {
+    /// 高さを明示しオーバーフローさせない（縛らないと .fill が縦に溢れて下の UI に被る）。
+    private func filmstrip(width: CGFloat, height: CGFloat) -> some View {
+        let count = max(thumbnails.count, 1)
+        let cellWidth = width / CGFloat(count)
+        return HStack(spacing: 0) {
             if thumbnails.isEmpty {
                 Rectangle().fill(.gray.opacity(0.3))
             } else {
                 ForEach(Array(thumbnails.enumerated()), id: \.offset) { _, image in
                     Image(uiImage: image)
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(maxWidth: .infinity)
+                        .scaledToFill()
+                        .frame(width: cellWidth, height: height)
                         .clipped()
                 }
             }
         }
+        .frame(width: width, height: height)
     }
 
-    private func dim(width: CGFloat) -> some View {
+    private func dim(width: CGFloat, height: CGFloat) -> some View {
         Rectangle()
             .fill(.black.opacity(0.5))
-            .frame(width: max(width, 0))
+            .frame(width: max(width, 0), height: height)
             .allowsHitTesting(false)
     }
 
     /// 指の絶対位置（"strip" 座標）で追従するハンドル。translation 累積のドリフトを避ける。
-    private func handle(at x: CGFloat, usable: CGFloat, isStart: Bool) -> some View {
+    private func handle(at x: CGFloat, height: CGFloat, usable: CGFloat, isStart: Bool) -> some View {
         RoundedRectangle(cornerRadius: 4)
             .fill(Color.yellow)
-            .frame(width: handleWidth)
+            .frame(width: handleWidth, height: height)
             .overlay(
                 Capsule().fill(.black.opacity(0.5)).frame(width: 3, height: 18)
             )
