@@ -50,7 +50,10 @@ struct ReportView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル", action: onCancel)
+                    Button(action: onCancel) {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("キャンセル")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("送信") {
@@ -72,7 +75,7 @@ private struct DeviceInfoCard: View {
             Text("レポートに含まれる情報")
                 .font(.subheadline.weight(.semibold))
             VStack(alignment: .leading, spacing: 4) {
-                row("iphone", device.displayModel)
+                row("iphone", device.modelName)   // 人が読む用途なので識別子は付けない（記録用は Slack/ログの displayModel）
                 row("gearshape", "\(device.systemName) \(device.systemVersion)")
                 row("app.badge", "v\(device.appVersion) (\(device.buildNumber))")
             }
