@@ -10,11 +10,19 @@ public struct DeviceInfo: Sendable {
     /// ハードウェア識別子（`iPhone16,1` など）。機種を一意に表す。
     /// Simulator では `SIMULATOR_MODEL_IDENTIFIER`（実機相当）を返す。
     public let modelIdentifier: String
+    /// マーケティング名（"iPhone 15 Pro" など）。未登録機種では識別子と同値。
+    public let modelName: String
     public let systemName: String
     public let systemVersion: String
     public let appVersion: String
     public let buildNumber: String
     public let locale: String
+
+    /// レポート表示用の機種文字列。`iPhone 15 Pro (iPhone16,1)`。
+    /// 未登録機種（名前＝識別子）は識別子のみ（`iPhone18,1`）。
+    public var displayModel: String {
+        modelName == modelIdentifier ? modelIdentifier : "\(modelName) (\(modelIdentifier))"
+    }
 
     /// 現在の端末・アプリ情報を採取する。`UIDevice.current` 参照のため `@MainActor`。
     @MainActor
@@ -30,9 +38,11 @@ public struct DeviceInfo: Sendable {
         let systemName = "unknown"
         let systemVersion = "unknown"
         #endif
+        let identifier = machineIdentifier()
         return DeviceInfo(
             model: model,
-            modelIdentifier: machineIdentifier(),
+            modelIdentifier: identifier,
+            modelName: DeviceModelNames.name(for: identifier),
             systemName: systemName,
             systemVersion: systemVersion,
             appVersion: bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—",
