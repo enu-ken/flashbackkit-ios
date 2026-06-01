@@ -45,6 +45,14 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .padding(.top, 8)
+
+            // クリップ無し（録画オフ）時の「おやすみ」案内 UI を確認するための入口。
+            Button {
+                Flashback.debugPresentEmptyReport()
+            } label: {
+                Label("おやすみ状態を開く", systemImage: "moon")
+            }
+            .buttonStyle(.bordered)
             #endif
         }
         .onAppear {
@@ -66,6 +74,12 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["FLASHBACK_TRIM_DEMO"] != nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     Flashback.debugPresentSampleReport()
+                }
+            }
+            // FLASHBACK_EMPTY_DEMO が立っていれば起動直後に「おやすみ」状態を自動提示する。
+            if ProcessInfo.processInfo.environment["FLASHBACK_EMPTY_DEMO"] != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Flashback.debugPresentEmptyReport()
                 }
             }
             #endif

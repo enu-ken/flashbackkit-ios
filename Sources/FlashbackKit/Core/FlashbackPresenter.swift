@@ -51,24 +51,24 @@ final class FlashbackPresenter {
         window = nil
     }
 
-    /// レポート入力 UI をモーダルで表示する。
+    /// レポート入力 UI をモーダル（フルスクリーン）で表示する。
     /// - Parameters:
-    ///   - clipURL: 直前クリップ（あればプレビュー＋トリミングを表示）。無ければタイトルのみで「完了」。
-    ///   - onComplete: 完了アクション（クリップ無し時）。タイトルを受け取り commit する。
+    ///   - clipURL: 直前クリップ（あればプレビュー＋トリミングを表示）。無ければ「おやすみ」案内。
     ///   - onShare: 共有アクション。切り出し→commit し、共有シート用の最終クリップ URL を返す。
+    ///   - onOpenSettings: 設定を開く（歯車 / おやすみ状態の「録画をオンにする」）。
     func presentReport(
         clipURL: URL?,
-        onComplete: @escaping (String) async -> Void,
-        onShare: @escaping (String, ClosedRange<Double>?) async -> URL?
+        onShare: @escaping (String, ClosedRange<Double>?) async -> URL?,
+        onOpenSettings: @escaping () -> Void
     ) {
         guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
 
         let report = ReportView(
             clipURL: clipURL,
             device: .current(),                           // @MainActor 採取（本メソッドは @MainActor）
-            onComplete: onComplete,
             onShare: onShare,
-            onCancel: { [weak self] in self?.dismissReport() }
+            onCancel: { [weak self] in self?.dismissReport() },
+            onOpenSettings: onOpenSettings
         )
         let host = UIHostingController(rootView: report)
         host.modalPresentationStyle = .fullScreen
@@ -173,8 +173,8 @@ final class FlashbackPresenter {
     func uninstall() {}
     func presentReport(
         clipURL: URL?,
-        onComplete: @escaping (String) async -> Void,
-        onShare: @escaping (String, ClosedRange<Double>?) async -> URL?
+        onShare: @escaping (String, ClosedRange<Double>?) async -> URL?,
+        onOpenSettings: @escaping () -> Void
     ) {}
     func dismissReport() {}
     func showStatus(_ message: String) {}

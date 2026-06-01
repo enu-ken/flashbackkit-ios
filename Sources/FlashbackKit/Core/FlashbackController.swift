@@ -54,7 +54,8 @@ final class FlashbackController {
 
     #if DEBUG
     /// DEBUG 専用: 任意のクリップでレポート UI を直接提示する（トリム UX 確認用）。
-    func debugPresentReport(clipURL: URL) {
+    /// `clipURL` が nil なら「おやすみ（録画オフ）」状態を確認できる。
+    func debugPresentReport(clipURL: URL?) {
         present(rawClip: clipURL)
     }
     #endif
@@ -74,25 +75,23 @@ final class FlashbackController {
         }
     }
 
-    /// レポート UI を提示する。完了（クリップ無し時）/ 共有 の 2 アクションを配線する。
+    /// レポート UI を提示する。共有 / 設定 の 2 アクションを配線する。
+    /// おやすみ（クリップ無し）状態では成果物を確定しない（onReport を発火しない）。
     private func present(rawClip: URL?) {
         hasCommitted = false
         presenter.presentReport(
             clipURL: rawClip,
-            onComplete: { [weak self] title in
-                await self?.handleComplete(title: title)
-            },
             onShare: { [weak self] title, range in
                 await self?.handleShare(rawClip: rawClip, title: title, range: range)
-            }
+            },
+            onOpenSettings: { [weak self] in self?.openSettings() }
         )
     }
 
-    /// 完了: クリップが無い（録画不可 / Simulator）場合の確定。成果物を commit して閉じる。
-    private func handleComplete(title: String) async {
-        commit(title: title, clip: nil, device: DeviceInfo.current())
-        presenter.dismissReport()
-        flashStatus("完了しました ✅")
+    /// 設定を開く（歯車 / おやすみ状態の「録画をオンにする」）。
+    /// TODO: Settings 画面（次タスク）を push する。現状はプレースホルダ（ログのみ）。
+    private func openSettings() {
+        FlashbackLog.report.info("設定を開く（Settings 画面は次タスクで実装予定）")
     }
 
     /// 共有: 選択範囲を切り出し（メタデータ焼き込み）→ commit → 共有シート用の URL を返す。
@@ -110,15 +109,6 @@ final class FlashbackController {
         guard !hasCommitted else { return }
         hasCommitted = true
         onReport?(FlashbackReport(title: title, device: device, clipURL: clip))
-    }
-
-    /// 一時的なステータス文言を出して数秒後に消す。
-    private func flashStatus(_ message: String) {
-        presenter.showStatus(message)
-        Task {
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            presenter.showStatus("")
-        }
     }
 
     /// 選択範囲（秒）で切り出し、タイトル/説明=端末情報のメタデータを焼き込み、

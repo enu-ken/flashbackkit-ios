@@ -20,5 +20,14 @@ public extension Flashback {
             #endif
         }
     }
+
+    /// DEBUG 専用: 「おやすみ（録画オフ）」状態のレポート UI を即時表示する。
+    ///
+    /// クリップ無し（Simulator / 録画オフ）時の案内 UI を確認するための入口。
+    /// 事前に `Flashback.start()` を呼んで overlay window が設置されている必要がある。
+    @MainActor
+    static func debugPresentEmptyReport() {
+        FlashbackController.shared.debugPresentReport(clipURL: nil)
+    }
 }
 #endif
