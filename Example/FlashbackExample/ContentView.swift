@@ -54,6 +54,14 @@ struct ContentView: View {
             }
             .buttonStyle(.bordered)
 
+            // 「録画オン直後」状態（オレンジマーク＋録画中）を確認するための入口。
+            Button {
+                Flashback.debugPresentRecordingJustEnabled()
+            } label: {
+                Label("録画オン直後を開く", systemImage: "record.circle")
+            }
+            .buttonStyle(.bordered)
+
             // 設定画面を確認するための入口。
             Button {
                 Flashback.debugPresentSettings()
@@ -88,6 +96,12 @@ struct ContentView: View {
             if ProcessInfo.processInfo.environment["FLASHBACK_EMPTY_DEMO"] != nil {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     Flashback.debugPresentEmptyReport()
+                }
+            }
+            // FLASHBACK_JUST_ENABLED_DEMO で起動直後に「録画オン直後」状態を自動提示する。
+            if ProcessInfo.processInfo.environment["FLASHBACK_JUST_ENABLED_DEMO"] != nil {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    Flashback.debugPresentRecordingJustEnabled()
                 }
             }
             // FLASHBACK_TOAST_DEMO=progress|failure で起動直後にトーストを自動表示する。

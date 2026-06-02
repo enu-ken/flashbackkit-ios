@@ -11,7 +11,9 @@ import AVFoundation
 ///
 /// クリップが無い場合（録画オフ / Simulator / 録画不可）は **おやすみ状態**として、
 /// 「録画はオフです」の案内＋「録画をオンにする」導線だけを出す（タイトル欄・共有なし）。
-/// この状態では成果物を確定しない（onReport を発火しない）。
+/// その「録画をオンにする」が成立した直後は **録画オン直後（justEnabled）状態**へ移り、
+/// オレンジの録画中マーク＋「録画をオンにしました / ● 録画中」を示す（CTA なし・この回はクリップ無し）。
+/// いずれの空状態でも成果物を確定しない（onReport を発火しない）。
 ///
 /// 本ファイルは Presenter（UIKit + SwiftUI 環境）からのみ使われるため UIKit/AVFoundation を前提にする。
 struct ReportView: View {
@@ -43,6 +45,8 @@ struct ReportView: View {
                     if let clipURL {
                         VideoTrimmerView(url: clipURL, selection: $selection)
                         titleField
+                    } else if settings.recordingJustEnabled {
+                        justEnabledInvitation
                     } else {
                         dormantInvitation
                     }
@@ -122,22 +126,13 @@ struct ReportView: View {
     private var dormantInvitation: some View {
         VStack(alignment: .leading, spacing: 16) {
             // 破線プレースホルダ箱: 休止マーク＋「録画はオフです」。
-            VStack(spacing: 12) {
+            placeholderBox {
                 TimeSliceMark.dormantOnSurface()
                     .frame(width: 40, height: 40)
                 Text("録画はオフです")
                     .font(FlashbackFont.body)
                     .foregroundStyle(FlashbackColor.secondaryLabel)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 40)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(
-                        FlashbackColor.separator,
-                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
-                    )
-            )
 
             // 中立コピー（QA 特有の「不具合」表現は避ける・README コピー注記準拠）。
             Text("オンにすると、直前の操作の録画を自動で保持します。")
@@ -156,6 +151,62 @@ struct ReportView: View {
             }
             .accessibilityLabel("録画をオンにする")
         }
+    }
+
+    // MARK: - 録画オン直後（justEnabled）状態
+
+    /// おやすみで「録画をオンにする」が成立した直後の継続状態。マークがグレー休止 →
+    /// オレンジ録画中へ変わり、「録画をオンにしました」＋「● 録画中」を示す。今回はまだ
+    /// クリップが無いため共有・タイトルは無く、✕ で閉じる（歯車は残る）。CTA も無い。
+    private var justEnabledInvitation: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // 破線プレースホルダ箱: 録画中マーク（オレンジ）＋肯定見出し＋「● 録画中」ピル。
+            placeholderBox {
+                TimeSliceMark.recordingOnSurface()
+                    .frame(width: 40, height: 40)
+                Text("録画をオンにしました")
+                    .font(FlashbackFont.body)
+                    .foregroundStyle(FlashbackColor.label)
+                recordingPill
+            }
+
+            // この回はクリップ無し＝「次回から」を伝える中立コピー。
+            Text("次回の起動操作から、直前の操作を自動で保持します。")
+                .font(FlashbackFont.body)
+                .foregroundStyle(FlashbackColor.secondaryLabel)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// 「● 録画中」ステータスピル（オレンジ点＋オレンジ文字 / 薄いオレンジ tint 背景）。
+    private var recordingPill: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(FlashbackColor.action)
+                .frame(width: 6, height: 6)
+            Text("録画中")
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(FlashbackColor.action)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(FlashbackColor.action.opacity(0.12), in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("録画中")
+    }
+
+    /// おやすみ / 録画オン直後で共通の破線プレースホルダ箱（角丸12・破線枠）。
+    private func placeholderBox<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 12, content: content)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 40)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(
+                        FlashbackColor.separator,
+                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                    )
+            )
     }
 
     // MARK: - 作業中オーバーレイ（共有の書き出し中）

@@ -94,6 +94,14 @@ extension TimeSliceMark {
                       wedgeColor: FlashbackColor.slate.opacity(0.55),
                       hubColor: FlashbackColor.slate)
     }
+
+    /// 録画オン直後（録画中）のマーク。明るいサーフェス上でオレンジ一色。
+    /// 色ルール「グレー→オレンジ＝録画中」を表す（ReportView の justEnabled 状態）。
+    static func recordingOnSurface() -> TimeSliceMark {
+        TimeSliceMark(ringColor: FlashbackColor.action,
+                      wedgeColor: FlashbackColor.action,
+                      hubColor: FlashbackColor.action)
+    }
 }
 
 /// FlashbackKit ワードマーク。"Flashback"（label）+ "Kit"（オレンジ）、semibold、軽いトラッキング。

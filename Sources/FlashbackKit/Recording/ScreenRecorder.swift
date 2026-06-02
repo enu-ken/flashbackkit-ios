@@ -23,12 +23,24 @@ final class ScreenRecorder {
     /// 事前照会できる権限 API は無いため、設定画面の権限表示はこの可用性を用いる。
     var isAvailable: Bool { recorder.isAvailable }
 
+    /// 実際に録画（バッファ取り込み）が走っているか。`isAvailable` は端末では権限拒否でも
+    /// true を返すため、「録画が実際にオンか」の真値はこちら。
+    var isRecording: Bool { isCapturing }
+
+    /// `startCapture` の確定結果を通知するフック（録画オン直後の justEnabled 判定用）。
+    /// `@MainActor` 上で呼ばれる。`true` = 取り込み開始成功、`false` = 失敗（権限拒否など）。
+    /// retryRecording 経由でのみ設定し、成功で一度使ったら呼び出し側で解除する想定。
+    /// ※ ReplayKit の `@Sendable` ハンドラへクロージャを渡すと過剰解放クラッシュの恐れがあるため、
+    ///   ハンドラ内では `self` のこのプロパティを参照して通知する（クロージャを box 化しない）。
+    var onCaptureStarted: ((Bool) -> Void)?
+
     func startBuffering(seconds: TimeInterval) {
         guard !isCapturing else { return }                 // 冪等
         SegmentRingWriter.purgeTempFiles()                 // 前回の残骸を掃除
 
         guard recorder.isAvailable else {                  // Simulator / 未対応
             FlashbackLog.lifecycle.info("画面録画は利用不可（Simulator か未対応環境）。clip なしで継続。")
+            onCaptureStarted?(false)                       // 録画オンにできず（おやすみ維持）
             return                                         // throw しない。export 側で recordingUnavailable
         }
 
@@ -45,12 +57,20 @@ final class ScreenRecorder {
             guard error == nil else { return }
             ring.ingest(sampleBuffer, type: bufferType)
         }, completionHandler: { @Sendable error in
-            guard let error else { return }
-            FlashbackLog.lifecycle.error("startCapture 失敗: \(error.localizedDescription, privacy: .public)")
+            // ハンドラには weak self だけを捕捉し（クロージャを box 化しない）、結果は
+            // @MainActor へ hop してから self のプロパティ経由で通知する。
             Task { @MainActor [weak self] in
-                self?.isCapturing = false
-                self?.ring?.teardown()
-                self?.ring = nil
+                guard let self else { return }
+                if let error {
+                    FlashbackLog.lifecycle.error("startCapture 失敗: \(error.localizedDescription, privacy: .public)")
+                    self.isCapturing = false
+                    self.ring?.teardown()
+                    self.ring = nil
+                    self.onCaptureStarted?(false)
+                } else {
+                    FlashbackLog.lifecycle.info("startCapture 開始成功（録画オン）")
+                    self.onCaptureStarted?(true)           // 取り込み開始成功（録画オン）
+                }
             }
         })
     }
@@ -279,6 +299,8 @@ final class SegmentRingWriter: @unchecked Sendable {
 #else
 final class ScreenRecorder {
     var isAvailable: Bool { false }
+    var isRecording: Bool { false }
+    var onCaptureStarted: ((Bool) -> Void)?
     func startBuffering(seconds: TimeInterval) {}
     func stopBuffering() {}
     func exportBufferedClip() async throws -> URL { throw FlashbackError.notImplemented }

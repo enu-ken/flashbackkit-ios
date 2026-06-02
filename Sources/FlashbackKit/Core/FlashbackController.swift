@@ -90,7 +90,18 @@ final class FlashbackController {
     /// 録画を再試行する（拒否後の後付け許可 / おやすみ状態の「録画をオンにする」）。
     /// `startBuffering` は冪等。録画が止まっている（拒否 / 未開始）時のみ `startCapture` を
     /// 再実行し、iOS の許可ダイアログが再度出ることを狙う（出ない版ではアプリ再起動が必要）。
+    ///
+    /// 取り込み開始が成立したら（楽観的遷移）ReportView を「録画オン直後（justEnabled）」へ
+    /// 切り替える。許可ダイアログが再提示されない版では成立せず、おやすみのまま留まる
+    /// （「アプリを再起動してください」案内は別タスク・実機未確認）。
     private func retryRecording() {
+        recorder.onCaptureStarted = { [weak self] started in
+            guard let self else { return }
+            self.recorder.onCaptureStarted = nil          // ワンショット
+            FlashbackLog.lifecycle.info("retryRecording 結果: \(started ? "成功（justEnabled へ遷移）" : "失敗（おやすみ維持）", privacy: .public)")
+            if started { self.settingsStore?.recordingJustEnabled = true }
+        }
+        FlashbackLog.lifecycle.info("retryRecording 実行（再ダイアログ可否は iOS 版依存）")
         recorder.startBuffering(seconds: configuration.bufferSeconds)
     }
 
@@ -124,6 +135,13 @@ final class FlashbackController {
     /// `clipURL` が nil なら「おやすみ（録画オフ）」状態を確認できる。
     func debugPresentReport(clipURL: URL?) {
         present(rawClip: clipURL)
+    }
+
+    /// DEBUG 専用: 「録画オン直後（justEnabled）」状態のレポート UI を即時表示する。
+    /// クリップ無しで提示してから justEnabled フラグを立て、オレンジマーク＋「録画中」を確認する。
+    func debugPresentReportJustEnabled() {
+        present(rawClip: nil)                              // present() が一旦 false にリセットするので…
+        settingsStore?.recordingJustEnabled = true         // …提示後に立てて justEnabled を表示させる
     }
 
     /// DEBUG 専用: 進行中トーストを表示する（見た目確認用）。
@@ -178,6 +196,7 @@ final class FlashbackController {
     private func present(rawClip: URL?) {
         guard let settingsStore else { return }
         hasCommitted = false
+        settingsStore.recordingJustEnabled = false        // 毎回おやすみ基準で始める（justEnabled は retry 成立時のみ）
         presenter.presentReport(
             clipURL: rawClip,
             onShare: { [weak self] title, range in

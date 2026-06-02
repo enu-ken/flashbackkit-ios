@@ -30,6 +30,15 @@ public extension Flashback {
         FlashbackController.shared.debugPresentReport(clipURL: nil)
     }
 
+    /// DEBUG 専用: 「録画オン直後（justEnabled）」状態のレポート UI を即時表示する。
+    ///
+    /// おやすみ → 「録画をオンにする」成立直後の継続状態（オレンジマーク＋「録画中」）を
+    /// 確認するための入口。事前に `Flashback.start()` で overlay window が必要。
+    @MainActor
+    static func debugPresentRecordingJustEnabled() {
+        FlashbackController.shared.debugPresentReportJustEnabled()
+    }
+
     /// DEBUG 専用: トースト（進行中 / 失敗）を表示する（見た目確認用）。
     /// - Parameter kind: `"failure"` で失敗トースト、それ以外は進行中トースト。
     @MainActor

@@ -19,6 +19,11 @@ final class FlashbackSettingsStore: ObservableObject {
     /// 画面録画が利用可能か（権限表示用・呼ぶたびに最新を返す）。
     let isRecordingAvailable: () -> Bool
 
+    /// 「録画をオンにする」での再試行が成立した直後か。`true` の間、ReportView の空状態は
+    /// おやすみ（録画オフ）ではなく「録画オン直後（justEnabled）」を表示する。
+    /// 提示のたびに Controller がリセットする（次回の空状態が誤って justEnabled にならないため）。
+    @Published var recordingJustEnabled = false
+
     /// 保持秒数の選択肢。
     static let retentionOptions = [10, 20, 30, 60]
 
