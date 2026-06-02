@@ -80,13 +80,18 @@ struct SettingsView: View {
                     Text("停止中").foregroundStyle(FlashbackColor.secondaryLabel)
                 }
             }
-            // iOS 設定にトグルが無いため、deep-link ではなく録画の再試行を提供する。
-            Button {
-                store.retryRecording()
-            } label: {
-                Text("録画を有効にする")
-                    .foregroundStyle(FlashbackColor.settingsLink)   // 青
-                    .contentShape(Rectangle())
+            // 「録画を有効にする」は**再試行が意味を持つ時だけ**出す。
+            // 録画中（既にオン）や録画不可（Simulator/非対応＝押しても無反応）では出さない。
+            // = 録画オフ かつ 端末が録画可能、のときのみ（拒否後の後付け許可を狙える状況）。
+            if !store.isRecording() && store.isRecordingAvailable() {
+                // iOS 設定にトグルが無いため、deep-link ではなく録画の再試行を提供する。
+                Button {
+                    store.retryRecording()
+                } label: {
+                    Text("録画を有効にする")
+                        .foregroundStyle(FlashbackColor.settingsLink)   // 青
+                        .contentShape(Rectangle())
+                }
             }
         } header: {
             Text("録画")
