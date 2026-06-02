@@ -56,5 +56,12 @@ enum FlashbackColor {
 
     /// 設定画面のリンク / ナビ（標準 iOS の青）。設定は「設定.app 然」とするための例外。
     static let settingsLink = Color(uiColor: .systemBlue)
+
+    // MARK: - UIKit 用ブランド色（FAB など UIView/CALayer レイヤで使う）
+
+    /// アクション色（オレンジ）の `UIColor`。Asset Catalog から解決する。
+    static let actionUIColor = UIColor(named: "ActionOrange", in: .module, compatibleWith: nil) ?? .systemOrange
+    /// ブランド中立色（Slate）の `UIColor`。
+    static let slateUIColor = UIColor(named: "Slate", in: .module, compatibleWith: nil) ?? .systemGray
 }
 #endif

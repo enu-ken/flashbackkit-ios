@@ -4,7 +4,7 @@ import FlashbackKit
 /// FlashbackKit の仮UIループを確認するためのホスト画面。
 ///
 /// 起動時に `Flashback.start()` を呼ぶと、SDK が overlay window に
-/// 既定トリガ（シェイク / フローティングボタン 🐞）を仕込む。
+/// 既定トリガ（シェイク / フローティングボタン）を仕込む。
 /// いずれかのトリガ → ReportView → タイトル入力 → 共有 でループが回る。
 ///
 /// 画面中央に「起動からの経過時間」をミリ秒単位で表示する。録画クリップを後で
@@ -30,7 +30,7 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            Text("端末を振る（手持ち）／ 🐞 ボタンを長押し（据え置き）でレポート UI を開く")
+            Text("端末を振る（手持ち）／ フローティングボタンを長押し（据え置き）でレポート UI を開く")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
