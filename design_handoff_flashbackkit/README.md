@@ -141,9 +141,14 @@ Prefer the named **iOS system color** when given; the hex is the mock's renderin
    - **環境情報:** caption (11, semibold, tertiary) then stacked rows, each = SF-Symbol icon (iphone / gearshape / app) + **SF Mono** text. Quiet, unframed, left-aligned. Rows: `iPhone 16`, `iOS 18.4`, `v1.0 (1)`.
 4. **Home indicator** (system).
 
-**Empty / no-clip state** (Simulator, screen-recording unsupported, or recording OFF): same nav **but right side shows only the gear** (no Share, no 完了). Body shows a dashed placeholder box containing the **dormant clock mark** (gray ring + neutral wedge) and "録画はオフです", then a line "オンにすると、次回から不具合の直前を自動で保持します。今回は環境情報のみ記録されています。" wait — **see copy note below**, then an orange **"録画をオンにする"** row, then 環境情報. **No title field** in this state.
+**Empty / no-clip state** (Simulator, screen-recording unsupported, or recording OFF): same nav **but right side shows only the gear** (no Share, no 完了). Body shows a dashed placeholder box containing the **dormant clock mark** (gray ring + neutral wedge) and "録画はオフです", then a line "オンにすると、次回から直前の画面録画を自動で保持します。", then an orange **"録画をオンにする"** row, then 環境情報. **No title field** in this state. (Avoid QA-specific "不具合/バグ" wording — see copy note below.)
 
 > **Copy note (decided):** Avoid QA-specific framing like "不具合" (bug) in the recording-feature description — the SDK only states that it can *recall the recording of the moments just before*; what the user does with it is up to them. Prefer phrasing like "オンにすると、直前の操作の録画を自動で保持します。" Keep this neutral wording in the build. (The mock may still show an older "不具合" string in places — use the neutral version.)
+
+**Recording-just-enabled state ("録画オン直後")** — the *continuation* of the dormant state after the user taps "録画をオンにする" and permission is granted. Same nav (gear only, no Share; ✕ exits). The placeholder box now shows the **Time Slice mark in ORANGE (recording state)**, a positive heading **"録画をオンにしました"**, and a small **"● 録画中"** status pill (orange dot + orange label on a faint orange-tint background). Body copy: **"次回の起動操作から、直前の操作を自動で保持します。"** Then 環境情報. **No CTA button** (recording is already on), **no title field**, **no Share** (no clip yet). See `screenshots/05-recording-just-enabled.png`.
+- *Why:* ReplayKit in-app capture has **no iOS Settings permission toggle** — permission is asked once via a system dialog at launch; declining can be retried via "録画をオンにする", which may re-present the dialog and enable recording. After it's enabled there is still **no clip for this session** (the past can't be recovered), so the copy must communicate "from next time." Color rule holds: gray→orange = "now recording."
+- State transition: `dormant (OFF)` → tap "録画をオンにする" → permission granted → **`recording-just-enabled` (this state)**. (If permission can't be obtained and no dialog re-appears, branch to an "アプリを再起動してください" state — out of scope here.)
+- Drive via a state enum, e.g. `emptyReason: .dormant | .justEnabled | .noClip`. In the mock: `PhoneReportView(empty: true, justEnabled: true)`.
 
 ### 2. Settings — pushed screen (system-native look)
 Reached from the gear. **Uses standard iOS colors** (this screen should feel like Settings.app).
@@ -200,6 +205,7 @@ In `screenshots/` — clean renders of each confirmed screen (light & dark):
 - `02-reportview-empty.png` — ReportView empty / recording-OFF state, light + dark.
 - `03-settings.png` — Settings: light (granted) · dark · permission-off+button-hidden+60s.
 - `04-trigger-toast.png` — FAB states (recording / long-press / edge-tucked / dormant) + the two toasts.
+- `05-recording-just-enabled.png` — ReportView "録画オン直後" state (orange mark + 録画中), light + dark.
 
 ## Files in this bundle
 - `FlashbackKit - Phase 2.html` — the canvas with all confirmed screens + references. Open this first.

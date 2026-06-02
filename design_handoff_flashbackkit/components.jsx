@@ -121,7 +121,7 @@ function StatusBar({ t }) {
 }
 
 // ── The core ReportView preview, parametric on direction + scheme ───────
-function PhoneReportView({ d, scheme = 'light', empty = false }) {
+function PhoneReportView({ d, scheme = 'light', empty = false, justEnabled = false }) {
   const t = d[scheme];
   const W = 286,H = 600;
   // grayscale filmstrip frames (refined — neutral, so accent handles read)
@@ -152,6 +152,20 @@ function PhoneReportView({ d, scheme = 'light', empty = false }) {
           {/* body */}
           <div style={{ flex: 1, padding: '4px 16px 0', display: 'flex', flexDirection: 'column' }}>
             {empty ?
+            justEnabled ?
+            <>
+              <div style={{ flex: '0 0 auto', height: 168, borderRadius: 14, background: t.fieldBg, border: `1px dashed ${t.separator}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 4 }}>
+                <div style={{ position: 'relative', width: 40, height: 40 }}>
+                  <CleanMark ring={t.ctrl} wedge={t.ctrl} wedgeOpacity={1} hub={t.ctrl} size={40} sw={3.4} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: t.label }}>録画をオンにしました</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 11, background: scheme === 'light' ? 'rgba(217,130,28,0.12)' : 'rgba(232,162,62,0.16)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 3, background: t.ctrl, display: 'inline-block' }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, color: t.ctrl }}>録画中</span>
+                </span>
+              </div>
+              <div style={{ fontSize: 12.5, color: t.secondary, lineHeight: 1.5, marginTop: 12 }}>次回の起動操作から、直前の操作を自動で保持します。</div>
+            </> :
             <>
               <div style={{ flex: '0 0 auto', height: 168, borderRadius: 14, background: t.fieldBg, border: `1px dashed ${t.separator}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 4 }}>
                 <div style={{ position: 'relative', width: 40, height: 40 }}>
@@ -159,7 +173,7 @@ function PhoneReportView({ d, scheme = 'light', empty = false }) {
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 600, color: t.secondary }}>録画はオフです</span>
               </div>
-              <div style={{ fontSize: 12.5, color: t.secondary, lineHeight: 1.5, marginTop: 12 }}>オンにすると、次回から直前の画面録画を自動で保持します。今回は環境情報のみ記録されています。</div>
+              <div style={{ fontSize: 12.5, color: t.secondary, lineHeight: 1.5, marginTop: 12 }}>オンにすると、次回から直前の画面録画を自動で保持します。</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 11, color: t.ctrl }}>
                 <CleanMark ring={t.ctrl} wedge={t.ctrl} wedgeOpacity={0.5} hub={t.ctrl} size={16} sw={3.4} />
                 <span style={{ fontSize: 14, fontWeight: 600 }}>録画をオンにする</span>

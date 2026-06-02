@@ -53,6 +53,12 @@
           <DCArtboard id="rv-de" label="ダーク・クリップ無" width={286} height={600}>
             <PhoneReportView d={Q} scheme="dark" empty={true} />
           </DCArtboard>
+          <DCArtboard id="rv-on-l" label="ライト・録画オン直後" width={286} height={600}>
+            <PhoneReportView d={Q} scheme="light" empty={true} justEnabled={true} />
+          </DCArtboard>
+          <DCArtboard id="rv-on-d" label="ダーク・録画オン直後" width={286} height={600}>
+            <PhoneReportView d={Q} scheme="dark" empty={true} justEnabled={true} />
+          </DCArtboard>
         </DCSection>
 
         <DCSection id="settings" title="設定画面" subtitle="右上の歯車から遷移 — ボタン表示・保持秒数">
