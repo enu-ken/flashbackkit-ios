@@ -35,7 +35,12 @@ final class FlashbackController {
         }
         #if canImport(UIKit)
         if let host = presenter.triggerHost, configuration.triggers.contains(.floatingButton) {
-            detectors.append(FloatingButtonTrigger(host: host, corner: configuration.floatingButtonCorner))
+            let fab = FloatingButtonTrigger(host: host, corner: configuration.floatingButtonCorner)
+            // 進行中トーストは長押し開始時点で早出しする（発火直後はモーダルで一瞬になり見えないため）。
+            // 未発火で中断（早離し / ドラッグ）したら消す。
+            fab.onPressStart = { [weak self] in self?.presenter.showProgress("記憶を辿っています…") }
+            fab.onPressCancel = { [weak self] in self?.presenter.hideToast() }
+            detectors.append(fab)
         }
         #endif
         for detector in detectors {

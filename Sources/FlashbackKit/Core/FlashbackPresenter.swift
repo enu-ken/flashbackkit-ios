@@ -199,33 +199,35 @@ private struct StatusOverlay: View {
     }
 }
 
+/// トーストの反転背景色（dynamic UIColor・trait 解決でライブ切替に追従）。
+/// bg: ライト=ほぼ黒(20,20,24 @0.92) / ダーク=近白。fg はその反転。
+private enum ToastPalette {
+    static let background = UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(white: 0.96, alpha: 1)
+            : UIColor(red: 20 / 255, green: 20 / 255, blue: 24 / 255, alpha: 0.92)
+    }
+    static let foreground = UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 20 / 255, green: 20 / 255, blue: 24 / 255, alpha: 1)
+            : .white
+    }
+}
+
 /// トーストの共通カプセル（角丸20相当のピル・12pt・反転背景）。
 private struct ToastCapsule<Content: View>: View {
-    @Environment(\.colorScheme) private var scheme
     @ViewBuilder var content: Content
 
     var body: some View {
         HStack(spacing: 8) { content }
             .font(.system(size: 12, weight: .medium))
-            .foregroundStyle(foreground)
+            .foregroundStyle(Color(uiColor: ToastPalette.foreground))
             .lineLimit(1)
             .fixedSize()                       // hosting view の横潰れ＝テキスト切れを防ぐ
             .padding(.horizontal, 16)
             .padding(.vertical, 11)
-            .background(background, in: Capsule())
+            .background(Color(uiColor: ToastPalette.background), in: Capsule())
             .shadow(color: .black.opacity(0.18), radius: 8, y: 2)
-    }
-
-    // bg: ライト=ほぼ黒(20,20,24 @0.92) / ダーク=近白。fg はその反転。
-    private var background: Color {
-        scheme == .dark
-            ? Color(white: 0.96)
-            : Color(red: 20 / 255, green: 20 / 255, blue: 24 / 255).opacity(0.92)
-    }
-    private var foreground: Color {
-        scheme == .dark
-            ? Color(red: 20 / 255, green: 20 / 255, blue: 24 / 255)
-            : .white
     }
 }
 #else

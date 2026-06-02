@@ -22,6 +22,10 @@ import UIKit
 @MainActor
 final class FloatingButtonTrigger: TriggerDetecting {
     var onTrigger: (() -> Void)?
+    /// 長押し開始時（ゲージが溜まり始めた時点）。進行中トーストを早出しするため。
+    var onPressStart: (() -> Void)?
+    /// 長押しが発火せず中断した時（早離し / ドラッグ転化 / 取消）。早出しトーストを消すため。
+    var onPressCancel: (() -> Void)?
 
     private weak var host: UIViewController?
     private let corner: FloatingButtonCorner
@@ -39,6 +43,8 @@ final class FloatingButtonTrigger: TriggerDetecting {
 
         let button = FloatingButtonView(recordingEnabled: recordingEnabled)
         button.onTrigger = { [weak self] in self?.onTrigger?() }
+        button.onPressStart = { [weak self] in self?.onPressStart?() }
+        button.onPressCancel = { [weak self] in self?.onPressCancel?() }
         hostView.addSubview(button)
         button.place(in: hostView, corner: corner)
         self.button = button
@@ -51,9 +57,13 @@ final class FloatingButtonTrigger: TriggerDetecting {
 
     func stop() {
         button?.onTrigger = nil
+        button?.onPressStart = nil
+        button?.onPressCancel = nil
         button?.removeFromSuperview()
         button = nil
         onTrigger = nil
+        onPressStart = nil
+        onPressCancel = nil
     }
 }
 
@@ -62,6 +72,14 @@ final class FloatingButtonTrigger: TriggerDetecting {
 @MainActor
 private final class FloatingButtonView: UIView {
     var onTrigger: (() -> Void)?
+    /// 長押し開始（ゲージ充填の開始）。/ 中断（未発火で終了）。
+    var onPressStart: (() -> Void)?
+    var onPressCancel: (() -> Void)?
+    /// この押下で発火済みか。touchesEnded での誤キャンセル（トースト消し）を防ぐ。
+    private var didFire = false
+    /// 進行中トーストの早出しを少し遅らせる予約（ドラッグ移動だけの時の一瞬表示を防ぐ）。
+    private var pressStartWork: DispatchWorkItem?
+    private static let toastDelay: CFTimeInterval = 0.18
 
     /// 録画オン（オレンジ）/ オフ（グレー休止）。変更で見た目を更新する。
     var recordingEnabled: Bool {
@@ -195,19 +213,39 @@ private final class FloatingButtonView: UIView {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
+        didFire = false
         // タック中のタッチは引き出し用。プログレスは出さない。
         guard !isTucked else { return }
         beginPressRamp()
+        // 進行中トーストは少し遅らせて出す（ドラッグ移動だけの時は出る前に取消）。
+        schedulePressStart()
     }
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
         clearPress(restoreActive: false)
+        cancelPressStart()
+        if !didFire { onPressCancel?() }       // 未発火で離した＝早出しトーストを消す。
     }
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
         clearPress(restoreActive: false)
+        cancelPressStart()
+        if !didFire { onPressCancel?() }
+    }
+
+    /// 押下が `toastDelay` 続いたら進行中トーストを出す（ドラッグ転化はその前に取消）。
+    private func schedulePressStart() {
+        pressStartWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.onPressStart?() }
+        pressStartWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.toastDelay, execute: work)
+    }
+
+    private func cancelPressStart() {
+        pressStartWork?.cancel()
+        pressStartWork = nil
     }
 
     /// 押下開始: ゲージ充填と同期して opacity（待機→不透明）と微増スケール（→`pressScale`）を
@@ -283,6 +321,7 @@ private final class FloatingButtonView: UIView {
                 if let parent = superview { unTuck(in: parent) }
                 return
             }
+            didFire = true                     // 発火確定。touchesEnded でキャンセル扱いしない。
             endPressGauge()                    // 満了＝発火。ゲージは満ちて消す（opacity/scale は維持）。
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             popScale()                         // ランプの微増スケールから発火ポップへ繋ぐ。
@@ -306,6 +345,8 @@ private final class FloatingButtonView: UIView {
         case .began:
             // ドラッグ＝長押しではない。ゲージ/スケールを畳み、不透明（active）に戻す。
             clearPress(restoreActive: true)
+            cancelPressStart()                  // 出る前のトースト予約を取消（ドラッグ移動だけの時）。
+            if !didFire { onPressCancel?() }    // 既に出ていれば消す。
             dragStartCenter = center
             lastRawCenter = center
         case .changed:
