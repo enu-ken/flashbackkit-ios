@@ -273,6 +273,7 @@ struct ReportView: View {
         if isWorking {
             ProgressView()
                 .controlSize(.large)
+                .tint(FlashbackColor.secondaryLabel)   // ローディングは中立グレー（橙=操作可能の継承を打ち消す）。
                 .padding(24)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
         }
