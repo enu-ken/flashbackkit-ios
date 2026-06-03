@@ -29,7 +29,18 @@ final class ScreenRecorder {
 
     /// 画面録画が利用可能か（Simulator / 通話中 / 別アプリ録画中などは false）。
     /// 事前照会できる権限 API は無いため、設定画面の権限表示はこの可用性を用いる。
-    var isAvailable: Bool { recorder.isAvailable }
+    ///
+    /// Simulator は ReplayKit 実録画が物理的に不可。**新しい Sim（iOS 18 系）では
+    /// `RPScreenRecorder.isAvailable` が `true` を返す**ため、可用性を `RPScreenRecorder`
+    /// 任せにすると ReportView が「録画不可」でなく「録画はオフです（CTA 付き）」を誤表示する。
+    /// よって Sim ではコンパイル時に false へ固定する。
+    var isAvailable: Bool {
+        #if targetEnvironment(simulator)
+        false
+        #else
+        recorder.isAvailable
+        #endif
+    }
 
     /// 実際に録画が走っている（許可確定済み）か。`isCapturing`（試行中）ではなく**確定**状態を返す。
     /// 許可ダイアログ応答前は false（楽観的に true にしない）。UI の録画中表示・発火可否の真値。
@@ -51,7 +62,7 @@ final class ScreenRecorder {
         guard !isCapturing else { return }                 // 冪等
         SegmentRingWriter.purgeTempFiles()                 // 前回の残骸を掃除
 
-        guard recorder.isAvailable else {                  // Simulator / 未対応
+        guard isAvailable else {                           // Simulator / 未対応（Sim は上の可用性ゲートで false 固定）
             FlashbackLog.lifecycle.info("画面録画は利用不可（Simulator か未対応環境）。clip なしで継続。")
             onCaptureStarted?(false)                       // 録画オンにできず（おやすみ維持）
             return                                         // throw しない。export 側で recordingUnavailable
