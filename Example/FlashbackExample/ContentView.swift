@@ -58,6 +58,7 @@ struct ContentView: View {
         if env["FLASHBACK_PRIMING_DEMO"] != nil { after(0.5) { Flashback.debugPresentPriming() } }
         if let toastKind = env["FLASHBACK_TOAST_DEMO"] { after(0.6) { Flashback.debugShowToast(toastKind) } }
         if env["FLASHBACK_SETTINGS_DEMO"] != nil { after(0.5) { Flashback.debugPresentSettings() } }
+        if env["FLASHBACK_SHAKE_HINT_DEMO"] != nil { after(0.5) { Flashback.debugPresentShakeHint() } }
     }
     #endif
 }
@@ -219,6 +220,14 @@ private struct DebugTab: View {
                         Flashback.debugPresentSettings()
                     } label: {
                         Label("設定を開く", systemImage: "gearshape")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+
+                    Button {
+                        Flashback.debugPresentShakeHint()
+                    } label: {
+                        Label("2回シェイク案内を開く", systemImage: "iphone.gen3.radiowaves.left.and.right")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
