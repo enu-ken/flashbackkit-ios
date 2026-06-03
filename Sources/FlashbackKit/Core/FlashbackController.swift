@@ -38,6 +38,7 @@ final class FlashbackController {
             floatingButtonVisible: configuration.triggers.contains(.floatingButton),
             retentionSeconds: Int(configuration.bufferSeconds),
             isRecordingAvailable: { [weak self] in self?.recorder.isAvailable ?? false },
+            isRecording: { [weak self] in self?.recorder.isRecording ?? false },
             onFloatingButtonVisibleChanged: { [weak self] in self?.setFloatingButton($0) },
             onRetentionChanged: { [weak self] in self?.setRetention($0) },
             onRetryRecording: { [weak self] in self?.retryRecording() }
@@ -146,6 +147,21 @@ final class FlashbackController {
     func debugPresentReportJustEnabled() {
         present(rawClip: nil)                              // present() が一旦 false にリセットするので…
         settingsStore?.recordingJustEnabled = true         // …提示後に立てて justEnabled を表示させる
+    }
+
+    /// DEBUG 専用: 「録画不可（この端末では利用できません）」状態のレポート UI を提示する。
+    /// isAvailable=false を強制した使い捨てストアで提示し、CTA 非表示の案内を確認する。
+    func debugPresentReportUnavailable() {
+        let stub = FlashbackSettingsStore(
+            floatingButtonVisible: settingsStore?.floatingButtonVisible ?? true,
+            retentionSeconds: settingsStore?.retentionSeconds ?? 20,
+            isRecordingAvailable: { false },
+            isRecording: { false },
+            onFloatingButtonVisibleChanged: { _ in },
+            onRetentionChanged: { _ in },
+            onRetryRecording: {}
+        )
+        presenter.presentReport(clipURL: nil, onShare: { _, _ in nil }, settings: stub)
     }
 
     /// DEBUG 専用: 進行中トーストを表示する（見た目確認用）。

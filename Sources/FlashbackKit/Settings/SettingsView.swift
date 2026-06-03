@@ -72,19 +72,26 @@ struct SettingsView: View {
                 Text("画面収録")
                     .foregroundStyle(FlashbackColor.label)
                 Spacer()
-                if store.isRecordingAvailable() {
-                    Text("利用可能").foregroundStyle(FlashbackColor.success)
+                // 「録画が実際に回っているか」を表示（環境の可否=isAvailable ではなく isRecording）。
+                // ReportView の状態と意味を揃える。設定画面なので標準色（緑=オン・グレー=オフ）。
+                if store.isRecording() {
+                    Text("録画中").foregroundStyle(FlashbackColor.success)
                 } else {
-                    Text("利用不可").foregroundStyle(FlashbackColor.danger)
+                    Text("停止中").foregroundStyle(FlashbackColor.secondaryLabel)
                 }
             }
-            // iOS 設定にトグルが無いため、deep-link ではなく録画の再試行を提供する。
-            Button {
-                store.retryRecording()
-            } label: {
-                Text("録画を有効にする")
-                    .foregroundStyle(FlashbackColor.settingsLink)   // 青
-                    .contentShape(Rectangle())
+            // 「録画を有効にする」は**再試行が意味を持つ時だけ**出す。
+            // 録画中（既にオン）や録画不可（Simulator/非対応＝押しても無反応）では出さない。
+            // = 録画オフ かつ 端末が録画可能、のときのみ（拒否後の後付け許可を狙える状況）。
+            if !store.isRecording() && store.isRecordingAvailable() {
+                // iOS 設定にトグルが無いため、deep-link ではなく録画の再試行を提供する。
+                Button {
+                    store.retryRecording()
+                } label: {
+                    Text("録画を有効にする")
+                        .foregroundStyle(FlashbackColor.settingsLink)   // 青
+                        .contentShape(Rectangle())
+                }
             }
         } header: {
             Text("録画")
