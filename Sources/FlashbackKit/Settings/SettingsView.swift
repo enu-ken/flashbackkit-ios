@@ -26,12 +26,12 @@ struct SettingsView: View {
     private var displaySection: some View {
         Section {
             // トグルは緑に固定（view の青 tint に流されないよう明示）。
-            Toggle("フローティングボタンを表示", isOn: $store.floatingButtonVisible)
+            Toggle("画面上に起動ボタンを表示", isOn: $store.floatingButtonVisible)
                 .tint(FlashbackColor.success)
         } header: {
             Text("表示")
         } footer: {
-            Text("オフにすると、シェイク操作のみでレポートを起動します。")
+            Text("ボタンからの操作だけでなく、端末を2回振ってもレポートを起動できます。")
         }
     }
 
