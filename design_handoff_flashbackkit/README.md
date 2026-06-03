@@ -169,6 +169,21 @@ Reached from the gear. **Uses standard iOS colors** (this screen should feel lik
 ### 4. Permission-OFF ("おやすみ") UX
 Do **not** punish users who declined recording with an error. When recording is OFF: FAB is **gray/dormant**; on fire, **bypass the export step and open ReportView immediately** showing the gentle "録画はオフです" invitation + "録画をオンにする"; the user can enable later in Settings (optional). Toast is suppressed for this case.
 
+### 5. Screen-Recording Priming (pre-permission)
+**Purpose:** bridge to the un-customizable iOS screen-recording system alert (ReplayKit).
+The OS alert body/buttons can't be themed — only the app display name. Prime *before* it.
+**Presentation:** half-sheet `.presentationDetents([.medium])` over the dormant ReportView.
+(full-screen & an in-ReportView `.priming` state are kept as alternatives.)
+**Flow:** dormant → tap「録画をオンにする」→ priming →「許可へ進む」→ OS alert → granted → `justEnabled`.
+「あとで」returns to dormant (no toast).
+**Once per device** (`hasPrimed`); after that, 録画ON → OS alert directly.
+**Launch:** default OFF (no launch prompt). Settings toggle「アプリ起動時に権限を確認する」(default off)
+→ on fires `startCapture` right after launch. No「iOS の設定を開く」row (ReplayKit has no Settings toggle).
+**Color:** CTA = Action-Orange (enabling recording). Hero Time Slice mark = Slate-neutral (not yet recording).
+**Copy (default A):** 見出し「画面収録をオンにします」/ 本文「次に表示される iOS の確認で『許可』を選ぶと、
+アプリ内の直前の操作を自動で保持できます。」/ CTA「許可へ進む」「あとで」. Avoid 不具合/バグ wording.
+**Don't show** when granted or recording unsupported (Simulator).
+
 ---
 
 ## Interactions & Behavior

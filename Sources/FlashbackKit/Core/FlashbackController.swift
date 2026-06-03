@@ -31,18 +31,35 @@ final class FlashbackController {
         self.onReport = onReport
         guard configuration.isEnabled else { return }
 
-        recorder.startBuffering(seconds: configuration.bufferSeconds)
+        // 起動時録画は既定オフ（OS ダイアログを起動時に出さない）。設定トグルの永続値が
+        // あればそれを、無ければ config 既定（既定 false）を採用。オンの時だけ起動時バッファ開始。
+        let promptOnLaunch = (UserDefaults.standard.object(forKey: FlashbackSettingsStore.promptOnLaunchKey) as? Bool)
+            ?? configuration.promptOnLaunch
+        if promptOnLaunch {
+            recorder.startBuffering(seconds: configuration.bufferSeconds)
+        }
         presenter.install()
 
         settingsStore = FlashbackSettingsStore(
             floatingButtonVisible: configuration.triggers.contains(.floatingButton),
             retentionSeconds: Int(configuration.bufferSeconds),
+            promptOnLaunch: promptOnLaunch,
+            isRecordingActive: recorder.isRecording,
             isRecordingAvailable: { [weak self] in self?.recorder.isAvailable ?? false },
-            isRecording: { [weak self] in self?.recorder.isRecording ?? false },
             onFloatingButtonVisibleChanged: { [weak self] in self?.setFloatingButton($0) },
             onRetentionChanged: { [weak self] in self?.setRetention($0) },
-            onRetryRecording: { [weak self] in self?.retryRecording() }
+            onRetryRecording: { [weak self] in self?.retryRecording() },
+            onStopRecording: { [weak self] in self?.recorder.stopBuffering() },
+            onPromptOnLaunchChanged: { [weak self] in self?.setPromptOnLaunch($0) }
         )
+        // 録画の確定状態（許可後だけ true）を設定ストアへ常駐反映。UI が自動更新される。
+        recorder.onRecordingStateChanged = { [weak self] active in
+            guard let store = self?.settingsStore else { return }
+            store.isRecordingActive = active
+            // 録画オフに確定したら「録画オン直後（justEnabled）」も解除（停止後に
+            // ReportView が「録画をオンにしました」のまま残らないように）。
+            if !active { store.recordingJustEnabled = false }
+        }
 
         // シェイクは即時に配線。FAB は動的 add/remove のため別管理。
         var detectors: [TriggerDetecting] = []
@@ -79,6 +96,12 @@ final class FlashbackController {
         #if canImport(UIKit)
         if visible { installFloatingButton() } else { removeFloatingButton() }
         #endif
+    }
+
+    /// 起動時録画確認トグルの反映。ON にしたら今すぐバッファ開始（冪等）も行い、以降の起動でも
+    /// 効くよう永続値は Store 側で保存済み。OFF は現在の録画を止めない（「起動時に確認するか」の設定）。
+    private func setPromptOnLaunch(_ on: Bool) {
+        if on { recorder.startBuffering(seconds: configuration.bufferSeconds) }
     }
 
     /// 保持秒数を反映する（設定の選択）。ReplayKit を止めず ring を差し替えて即時適用する。
@@ -155,13 +178,33 @@ final class FlashbackController {
         let stub = FlashbackSettingsStore(
             floatingButtonVisible: settingsStore?.floatingButtonVisible ?? true,
             retentionSeconds: settingsStore?.retentionSeconds ?? 20,
+            promptOnLaunch: false,
+            isRecordingActive: false,
             isRecordingAvailable: { false },
-            isRecording: { false },
             onFloatingButtonVisibleChanged: { _ in },
             onRetentionChanged: { _ in },
-            onRetryRecording: {}
+            onRetryRecording: {},
+            onStopRecording: {},
+            onPromptOnLaunchChanged: { _ in }
         )
         presenter.presentReport(clipURL: nil, onShare: { _, _ in nil }, settings: stub)
+    }
+
+    /// DEBUG 専用: 許可プライミングのシートを単体提示する（見た目確認用）。
+    func debugPresentPriming() {
+        presenter.debugPresentPriming(
+            onProceed: { [weak self] in
+                self?.settingsStore?.hasPrimedScreenRecording = true
+                self?.presenter.dismissReport()
+                self?.settingsStore?.retryRecording()
+            },
+            onLater: { [weak self] in self?.presenter.dismissReport() }
+        )
+    }
+
+    /// DEBUG 専用: プライミング既読フラグ（hasPrimed）をリセットする（実機での再テスト用）。
+    func debugResetPriming() {
+        settingsStore?.hasPrimedScreenRecording = false
     }
 
     /// DEBUG 専用: 進行中トーストを表示する（見た目確認用）。
