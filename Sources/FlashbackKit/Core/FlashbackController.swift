@@ -31,6 +31,16 @@ final class FlashbackController {
         self.onReport = onReport
         guard configuration.isEnabled else { return }
 
+        // シミュレータでは既定で起動しない（ReplayKit 実録画が不可なため）。
+        // 使えない FAB の常駐やオンボーディングの煩わしさを避ける。SDK の UI をシムで
+        // 確認したい場合のみ `runsOnSimulator = true`（Example アプリは true）。
+        #if targetEnvironment(simulator)
+        guard configuration.runsOnSimulator else {
+            FlashbackLog.lifecycle.info("Simulator では起動しません（runsOnSimulator=false）。実機でお試しください。")
+            return
+        }
+        #endif
+
         // 起動時録画は既定オフ（OS ダイアログを起動時に出さない）。設定トグルの永続値が
         // あればそれを、無ければ config 既定（既定 false）を採用。オンの時だけ起動時バッファ開始。
         let promptOnLaunch = (UserDefaults.standard.object(forKey: FlashbackSettingsStore.promptOnLaunchKey) as? Bool)

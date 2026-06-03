@@ -28,7 +28,10 @@ struct ContentView: View {
         }
         .onAppear {
             // triggers 未指定なので既定（シェイク + フローティングボタン）。
+            // Example は SDK の UI/挙動をシミュレータでも確認したいので runsOnSimulator=true。
+            // （実ホストの既定は false ＝シムでは起動しない。）
             Flashback.start(
+                configuration: .init(runsOnSimulator: true),
                 // ハンドオフ: 録画→トリム→共有まで終えた成果物がここに届く。
                 // AI 要約・Slack 送信・自社連携はホスト側で自由に（ここでは demo としてログ出力）。
                 onReport: { report in

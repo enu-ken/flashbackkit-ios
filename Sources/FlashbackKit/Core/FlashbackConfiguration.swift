@@ -22,18 +22,28 @@ public struct FlashbackConfiguration: Sendable {
     /// （永続値が無い初回のみ本既定値を採用）。
     public var promptOnLaunch: Bool
 
+    /// シミュレータ上で起動するか。**既定は false**：シミュレータは ReplayKit 実録画が
+    /// 物理的に不可なので、`Flashback.start()` を何もしない（FAB・トリガ・オーバーレイを置かない）。
+    /// 開発者がシム上で別アプリを開発・新規シムを多用する際に、使えない FAB が常駐したり
+    /// オンボーディングが走ったりする煩わしさを避けるため。
+    /// SDK 自体の UI をシムで確認したい場合のみ true にする（Example アプリは true）。
+    /// 実機ビルドには影響しない（このフラグは `targetEnvironment(simulator)` 時のみ参照）。
+    public var runsOnSimulator: Bool
+
     public init(
         bufferSeconds: TimeInterval = 20,
         isEnabled: Bool = true,
         triggers: FlashbackTrigger = .default,
         floatingButtonCorner: FloatingButtonCorner = .bottomTrailing,
-        promptOnLaunch: Bool = false
+        promptOnLaunch: Bool = false,
+        runsOnSimulator: Bool = false
     ) {
         self.bufferSeconds = bufferSeconds
         self.isEnabled = isEnabled
         self.triggers = triggers
         self.floatingButtonCorner = floatingButtonCorner
         self.promptOnLaunch = promptOnLaunch
+        self.runsOnSimulator = runsOnSimulator
     }
 }
 
