@@ -41,18 +41,29 @@ final class FlashbackController {
         }
         #endif
 
+        // 保持秒数も設定の永続値があれば採用（retentionOptions 外の不正値は無視して config 既定へ）。
+        // 起動時バッファ・Store 初期値・以降の ring（setRetention / retry）をこの値で揃える。
+        let bufferSeconds: TimeInterval = {
+            if let saved = UserDefaults.standard.object(forKey: FlashbackSettingsStore.retentionSecondsKey) as? Int,
+               FlashbackSettingsStore.retentionOptions.contains(saved) {
+                return TimeInterval(saved)
+            }
+            return configuration.bufferSeconds
+        }()
+        self.configuration.bufferSeconds = bufferSeconds
+
         // 起動時録画は既定オフ（OS ダイアログを起動時に出さない）。設定トグルの永続値が
         // あればそれを、無ければ config 既定（既定 false）を採用。オンの時だけ起動時バッファ開始。
         let promptOnLaunch = (UserDefaults.standard.object(forKey: FlashbackSettingsStore.promptOnLaunchKey) as? Bool)
             ?? configuration.promptOnLaunch
         if promptOnLaunch {
-            recorder.startBuffering(seconds: configuration.bufferSeconds)
+            recorder.startBuffering(seconds: bufferSeconds)
         }
         presenter.install()
 
         settingsStore = FlashbackSettingsStore(
             floatingButtonVisible: configuration.triggers.contains(.floatingButton),
-            retentionSeconds: Int(configuration.bufferSeconds),
+            retentionSeconds: Int(bufferSeconds),
             promptOnLaunch: promptOnLaunch,
             isRecordingActive: recorder.isRecording,
             isRecordingAvailable: { [weak self] in self?.recorder.isAvailable ?? false },

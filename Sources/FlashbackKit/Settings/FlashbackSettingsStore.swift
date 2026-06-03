@@ -12,9 +12,14 @@ final class FlashbackSettingsStore: ObservableObject {
     @Published var floatingButtonVisible: Bool {
         didSet { onFloatingButtonVisibleChanged(floatingButtonVisible) }
     }
-    /// 保持する録画秒数（`retentionOptions` のいずれか）。
+    /// 保持する録画秒数（`retentionOptions` のいずれか）。変更は UserDefaults へ永続化し、
+    /// Controller 側で即時反映（ring 差し替え）する＝次回起動でも保たれる。
+    /// init 代入では didSet が走らないため永続化・適用は起きない（promptOnLaunch と同様）。
     @Published var retentionSeconds: Int {
-        didSet { onRetentionChanged(retentionSeconds) }
+        didSet {
+            UserDefaults.standard.set(retentionSeconds, forKey: Self.retentionSecondsKey)
+            onRetentionChanged(retentionSeconds)
+        }
     }
     /// 画面録画が利用可能か（= 端末/環境が録画できるか・RPScreenRecorder.isAvailable）。
     /// 「録画オン/オフ」とは別物（拒否しても true）。CTA の出し分け等の判定に使う。
@@ -60,6 +65,7 @@ final class FlashbackSettingsStore: ObservableObject {
 
     /// UserDefaults キー（ホストと衝突しないよう接頭辞付き）。
     static let promptOnLaunchKey = "FlashbackKit.promptOnLaunch"
+    static let retentionSecondsKey = "FlashbackKit.retentionSeconds"
     static let hasPrimedKey = "FlashbackKit.hasPrimedScreenRecording"
     static let hasSeenShakeHintKey = "FlashbackKit.hasSeenShakeHint"
 
