@@ -67,23 +67,25 @@ final class FloatingButtonTrigger: TriggerDetecting {
     }
 }
 
-/// FAB の最後の位置（端＋縦の割合）を端末に永続化するストア。
+/// FAB の最後の位置（端＋縦の割合＋タック状態）を端末に永続化するストア。
 /// 絶対座標ではなく「左右どちらの端か」＋「縦位置の割合」で持つので、safe area やタブバー差・
-/// 別端末でも破綻しない。**タック状態は保存しない**（次回は必ず表示状態で復元する）。
+/// 別端末でも破綻しない。タック（端に半分隠した）状態も保持し、次回も同じ見た目で復元する。
 private enum FABPositionStore {
     static let edgeKey = "FlashbackKit.fabEdgeIsTrailing"
     static let yKey = "FlashbackKit.fabYFraction"
+    static let tuckedKey = "FlashbackKit.fabTucked"
 
-    static func save(edgeIsTrailing: Bool, yFraction: Double) {
+    static func save(edgeIsTrailing: Bool, yFraction: Double, tucked: Bool) {
         let d = UserDefaults.standard
         d.set(edgeIsTrailing, forKey: edgeKey)
         d.set(yFraction, forKey: yKey)
+        d.set(tucked, forKey: tuckedKey)
     }
 
-    static func load() -> (edgeIsTrailing: Bool, yFraction: Double)? {
+    static func load() -> (edgeIsTrailing: Bool, yFraction: Double, tucked: Bool)? {
         let d = UserDefaults.standard
         guard d.object(forKey: yKey) != nil else { return nil }   // 未保存なら nil（既定コーナーを使う）
-        return (d.bool(forKey: edgeKey), d.double(forKey: yKey))
+        return (d.bool(forKey: edgeKey), d.double(forKey: yKey), d.bool(forKey: tuckedKey))
     }
 }
 
@@ -343,12 +345,22 @@ private final class FloatingButtonView: UIView {
         let minY = inset.top + Self.edgeMargin + half
         let maxY = bounds.height - inset.bottom - extraBottomInset - Self.edgeMargin - half
 
-        // 保存済みの位置（端＋高さ）があれば復元する（タック状態は復元せず、必ず表示状態で出す）。
+        // 保存済みの位置（端＋高さ＋タック）があれば復元する。
         // 高さはクランプ範囲 [minY, maxY] に丸めるので、タブバー回避や safe area にも自然に従う。
         if let saved = FABPositionStore.load() {
-            let x = saved.edgeIsTrailing ? maxX : minX
             let y = min(max(CGFloat(saved.yFraction) * bounds.height, minY), maxY)
-            center = CGPoint(x: x, y: y)
+            if saved.tucked {
+                // タック状態を復元: 端に半分隠した位置（peek だけ残す）で出す。
+                isTucked = true
+                tuckedAtMaxX = saved.edgeIsTrailing
+                let peekX = saved.edgeIsTrailing ? bounds.width + half - Self.peek : -half + Self.peek
+                center = CGPoint(x: peekX, y: y)
+                alpha = idleAlpha
+                accessibilityHint = "タップで表示"
+                applyAppearance()
+            } else {
+                center = CGPoint(x: saved.edgeIsTrailing ? maxX : minX, y: y)
+            }
             return
         }
 
@@ -360,11 +372,13 @@ private final class FloatingButtonView: UIView {
         }
     }
 
-    /// 現在の端と高さ（割合）を永続化する。`spring` 等での最終静止位置を渡す。
-    private func savePosition(edgeIsTrailing: Bool, y: CGFloat, in parent: UIView) {
+    /// 現在の端・高さ（割合）・タック状態を永続化する。`spring` 等での最終静止位置を渡す。
+    private func savePosition(edgeIsTrailing: Bool, y: CGFloat, tucked: Bool, in parent: UIView) {
         let h = parent.bounds.height
         guard h > 0 else { return }
-        FABPositionStore.save(edgeIsTrailing: edgeIsTrailing, yFraction: Double(min(max(y / h, 0), 1)))
+        FABPositionStore.save(edgeIsTrailing: edgeIsTrailing,
+                              yFraction: Double(min(max(y / h, 0), 1)),
+                              tucked: tucked)
     }
 
     /// 配置し、タブバーがまだ現れていなければ表示直後だけ短時間リトライ判定する。
@@ -445,9 +459,9 @@ private final class FloatingButtonView: UIView {
             lastRawCenter = CGPoint(x: dragStartCenter.x + t.x, y: dragStartCenter.y + t.y)
             center = dragClampedCenter(lastRawCenter, in: parent)
         case .ended, .cancelled:
-            // タックのまま上下移動して離した場合はその位置に留まる（高さだけ更新保存）。
+            // タックのまま上下移動して離した場合はその位置に留まる（タック＋高さを更新保存）。
             if isTucked {
-                savePosition(edgeIsTrailing: tuckedAtMaxX, y: center.y, in: parent)
+                savePosition(edgeIsTrailing: tuckedAtMaxX, y: center.y, tucked: true, in: parent)
                 setActive(false)
                 return
             }
@@ -482,7 +496,7 @@ private final class FloatingButtonView: UIView {
             : -half + Self.peek
         isTucked = true
         tuckedAtMaxX = toMaxEdge
-        savePosition(edgeIsTrailing: toMaxEdge, y: center.y, in: parent)   // 端＋高さは保存（タックは保存しない）
+        savePosition(edgeIsTrailing: toMaxEdge, y: center.y, tucked: true, in: parent)
         applyAppearance()                       // 色は録画状態のまま（タックは形状/alpha のみ）。
         accessibilityHint = "タップで表示"
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -498,7 +512,7 @@ private final class FloatingButtonView: UIView {
         accessibilityHint = "長押しで起動"
         let target = clampedCenter(CGPoint(x: tuckedAtMaxX ? .greatestFiniteMagnitude : -.greatestFiniteMagnitude,
                                            y: center.y), in: parent)
-        savePosition(edgeIsTrailing: tuckedAtMaxX, y: target.y, in: parent)
+        savePosition(edgeIsTrailing: tuckedAtMaxX, y: target.y, tucked: false, in: parent)
         // 引き出しは弾みを強めに（damping 低め）でポンッと出す。
         spring(to: target, velocity: 0, damping: 0.55, alpha: activeAlpha) { [weak self] in
             self?.setActive(false)
@@ -600,7 +614,7 @@ private final class FloatingButtonView: UIView {
         let minX = inset.left + Self.edgeMargin + half
         let maxX = parent.bounds.width - inset.right - Self.edgeMargin - half
         let targetX = (center.x - minX) < (maxX - center.x) ? minX : maxX
-        savePosition(edgeIsTrailing: targetX == maxX, y: center.y, in: parent)
+        savePosition(edgeIsTrailing: targetX == maxX, y: center.y, tucked: false, in: parent)
         spring(to: CGPoint(x: targetX, y: center.y), velocity: velocity, damping: 0.6)
     }
 
