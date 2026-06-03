@@ -47,12 +47,21 @@ final class FlashbackSettingsStore: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: Self.hasPrimedKey) }
     }
 
+    /// 「2回シェイクで起動」ヒントを既に一度見せたか（端末1回）。
+    /// フローティングボタンを OFF にした直後に一度だけ提示し、`true` 以降は出さない。
+    /// SDK 副作用を持たない単純フラグなので UserDefaults を直接読み書きする。
+    var hasSeenShakeHint: Bool {
+        get { UserDefaults.standard.bool(forKey: Self.hasSeenShakeHintKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.hasSeenShakeHintKey) }
+    }
+
     /// 保持秒数の選択肢。
     static let retentionOptions = [10, 20, 30, 60]
 
     /// UserDefaults キー（ホストと衝突しないよう接頭辞付き）。
     static let promptOnLaunchKey = "FlashbackKit.promptOnLaunch"
     static let hasPrimedKey = "FlashbackKit.hasPrimedScreenRecording"
+    static let hasSeenShakeHintKey = "FlashbackKit.hasSeenShakeHint"
 
     private let onFloatingButtonVisibleChanged: (Bool) -> Void
     private let onRetentionChanged: (Int) -> Void

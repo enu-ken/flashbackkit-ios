@@ -61,6 +61,21 @@ public extension Flashback {
         FlashbackController.shared.debugResetPriming()
     }
 
+    /// DEBUG 専用: 「2回シェイクで起動」ヒント（中央アラート風カード）を表示する（見た目確認用）。
+    ///
+    /// 本番ではフローティングボタンの表示トグルを OFF にした直後に端末1回だけ自動提示される。
+    /// 事前に `Flashback.start()` で overlay window が必要。
+    @MainActor
+    static func debugPresentShakeHint() {
+        FlashbackController.shared.debugPresentShakeHint()
+    }
+
+    /// DEBUG 専用: シェイクヒント既読フラグをリセットする（実機で初回提示を再テストする用）。
+    @MainActor
+    static func debugResetShakeHint() {
+        FlashbackController.shared.debugResetShakeHint()
+    }
+
     /// DEBUG 専用: トースト（進行中 / 失敗）を表示する（見た目確認用）。
     /// - Parameter kind: `"failure"` で失敗トースト、それ以外は進行中トースト。
     @MainActor

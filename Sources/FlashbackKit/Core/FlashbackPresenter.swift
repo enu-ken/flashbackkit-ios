@@ -82,6 +82,27 @@ final class FlashbackPresenter {
         reportHost = nil
     }
 
+    /// 「2回シェイクで起動」ヒント（中央アラート風カード）を最前面へ提示する。
+    /// フローティングボタンを OFF にした直後に一度だけ呼ばれる想定。暗転スクリム付きの
+    /// 透明ホストを `.overFullScreen` + `.crossDissolve` で重ね、OK で閉じる。
+    /// 既に何かを提示中（別シート等）の場合は出さない（多重提示を避ける）。
+    func presentShakeHint() {
+        guard let root = window?.rootViewController else { return }
+        let top = Self.topmost(from: root)
+        guard top.presentedViewController == nil else { return }
+
+        // OK ハンドラから自身を閉じられるよう、生成後に参照を差し込む。
+        let box = WeakVCBox()
+        let host = UIHostingController(
+            rootView: ShakeHintHostView(onDismiss: { [box] in box.vc?.dismiss(animated: true) })
+        )
+        box.vc = host
+        host.modalPresentationStyle = .overFullScreen
+        host.modalTransitionStyle = .crossDissolve
+        host.view.backgroundColor = .clear
+        top.present(host, animated: true)
+    }
+
     /// 進行中トースト（オレンジのスピナー）。書き出し中に出す。例:「記憶を辿っています…」。
     func showProgress(_ message: String) {
         model.toast = .progress(message)
@@ -148,11 +169,24 @@ final class FlashbackPresenter {
         overlay.didMove(toParent: root)
     }
 
+    /// 提示チェーンの最前面 view controller を辿る。
+    private static func topmost(from vc: UIViewController) -> UIViewController {
+        var top = vc
+        while let presented = top.presentedViewController { top = presented }
+        return top
+    }
+
     /// アクティブな foreground シーンを探す。
     private static func activeScene() -> UIWindowScene? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
     }
+}
+
+/// 生成後に view controller 参照を差し込み、クロージャから弱参照で閉じるための箱。
+@MainActor
+private final class WeakVCBox {
+    weak var vc: UIViewController?
 }
 
 /// 実体のある subview（ボタン等）以外のタッチをホストアプリへ通す `UIWindow`。
@@ -290,6 +324,7 @@ final class FlashbackPresenter {
         settings: FlashbackSettingsStore
     ) {}
     func dismissReport() {}
+    func presentShakeHint() {}
     func showProgress(_ message: String) {}
     func showFailure(_ message: String, onRetry: @escaping () -> Void) {}
     func hideToast() {}

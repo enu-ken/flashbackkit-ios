@@ -94,8 +94,24 @@ final class FlashbackController {
     /// フローティングボタンの表示/非表示を切り替える（設定トグル）。
     private func setFloatingButton(_ visible: Bool) {
         #if canImport(UIKit)
-        if visible { installFloatingButton() } else { removeFloatingButton() }
+        if visible {
+            installFloatingButton()
+        } else {
+            removeFloatingButton()
+            maybeShowShakeHint()
+        }
         #endif
+    }
+
+    /// FAB を OFF にした直後、「2回シェイクで起動」ヒントを端末1回だけ提示する。
+    /// シェイク導線が無い構成では起動手段の案内にならないため出さない。既読（hasSeenShakeHint）でも出さない。
+    /// 設定トグルの更新中に提示すると遷移が競合し得るため、次の run loop へ送ってから提示する。
+    private func maybeShowShakeHint() {
+        guard let store = settingsStore else { return }
+        guard configuration.triggers.contains(.shake) else { return }
+        guard !store.hasSeenShakeHint else { return }
+        store.hasSeenShakeHint = true
+        Task { @MainActor in self.presenter.presentShakeHint() }
     }
 
     /// 起動時録画確認トグルの反映。ON にしたら今すぐバッファ開始（冪等）も行い、以降の起動でも
@@ -205,6 +221,17 @@ final class FlashbackController {
     /// DEBUG 専用: プライミング既読フラグ（hasPrimed）をリセットする（実機での再テスト用）。
     func debugResetPriming() {
         settingsStore?.hasPrimedScreenRecording = false
+    }
+
+    /// DEBUG 専用: 「2回シェイクで起動」ヒントを最前面へ提示する（見た目確認用）。
+    /// 既読フラグは立てない（何度でも確認できる）。事前に `Flashback.start()` で overlay window が必要。
+    func debugPresentShakeHint() {
+        presenter.presentShakeHint()
+    }
+
+    /// DEBUG 専用: シェイクヒント既読フラグ（hasSeenShakeHint）をリセットする（実機での再テスト用）。
+    func debugResetShakeHint() {
+        settingsStore?.hasSeenShakeHint = false
     }
 
     /// DEBUG 専用: 進行中トーストを表示する（見た目確認用）。
