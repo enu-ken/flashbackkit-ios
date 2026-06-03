@@ -179,6 +179,9 @@ final class SegmentRingWriter: @unchecked Sendable {
     private let queue = DispatchQueue(label: "FlashbackKit.SegmentRingWriter")
     private let segmentDuration: TimeInterval
     private let maxSegments: Int
+    /// 目標保持長（秒）。リングは over-retain（N＋セグメント端数）するため、書き出し時に
+    /// 直近この秒数へトリムして尺の上振れを無くす。録画が N 秒未満なら在庫全体を返す。
+    private let bufferSeconds: TimeInterval
 
     // 以下は queue 上でのみアクセスする。
     private var writer: AVAssetWriter?
@@ -189,6 +192,7 @@ final class SegmentRingWriter: @unchecked Sendable {
     private var tornDown = false
 
     init(bufferSeconds: TimeInterval) {
+        self.bufferSeconds = bufferSeconds
         let seg = max(2, bufferSeconds / 6)                // 窓を ~6 分割
         self.segmentDuration = seg
         self.maxSegments = Int((bufferSeconds / seg).rounded(.up)) + 1   // 常に N 秒以上を確保
@@ -286,7 +290,7 @@ final class SegmentRingWriter: @unchecked Sendable {
 
     func export() async throws -> URL {
         let segments = try await finalizeAndSnapshot()
-        return try await Self.composeAndExport(segments: segments)
+        return try await Self.composeAndExport(segments: segments, targetSeconds: bufferSeconds)
     }
 
     private func finalizeAndSnapshot() async throws -> [URL] {
@@ -316,8 +320,11 @@ final class SegmentRingWriter: @unchecked Sendable {
         }
     }
 
-    /// セグメント群を 1 本の mp4 へ連結（passthrough・無劣化）。先頭トリムはしない。
-    private static func composeAndExport(segments: [URL]) async throws -> URL {
+    /// セグメント群を 1 本の mp4 へ連結（passthrough・無劣化）し、直近 `targetSeconds` へトリムする。
+    /// リングは over-retain（N＋セグメント端数）するので、書き出し時に末尾 N 秒だけを `session.timeRange`
+    /// で切り出すと尺の上振れが消えて安定する（passthrough はキーフレーム境界へ数フレームの誤差で
+    /// スナップしうる＝ClipTrimmer と同方針）。連結尺が N 未満なら全体を返す（在庫不足は埋められない）。
+    private static func composeAndExport(segments: [URL], targetSeconds: TimeInterval) async throws -> URL {
         let composition = AVMutableComposition()
         guard let track = composition.addMutableTrack(
             withMediaType: .video,
@@ -345,6 +352,12 @@ final class SegmentRingWriter: @unchecked Sendable {
         }
         session.outputURL = outURL
         session.outputFileType = .mp4
+
+        // 直近 targetSeconds だけを書き出す（over-retain した先頭超過分を落として尺を安定させる）。
+        let target = CMTime(seconds: targetSeconds, preferredTimescale: 600)
+        if cursor > target {
+            session.timeRange = CMTimeRange(start: CMTimeSubtract(cursor, target), duration: target)
+        }
 
         await withCheckedContinuation { continuation in
             session.exportAsynchronously { continuation.resume() }
