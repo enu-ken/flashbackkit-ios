@@ -329,8 +329,12 @@ struct ReportView: View {
 }
 
 /// 端末情報。枠で囲わず、控えめなグレー文字＋SF Mono で補足的に示す（左寄せ・スタック）。
+/// 各行は**長押しで即コピー**（メニューを挟まない）。長押しジェスチャはフォーカスを奪わないので
+/// **キーボードは開いたまま**＝コピーしてそのままタイトルへ貼り付けられる。
 private struct DeviceInfoSection: View {
     let device: DeviceInfo
+    /// 直近にコピーした行の値（一瞬「コピーしました」を出して自動で消す）。
+    @State private var copied: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -342,6 +346,12 @@ private struct DeviceInfoSection: View {
             row("gearshape", "\(device.systemName) \(device.systemVersion)")
             row("app", "v\(device.appVersion) (\(device.buildNumber))")
         }
+        // コピー表示は約1.2秒で自動的に消す（タイマー状態を持たず id 連動の task で）。
+        .task(id: copied) {
+            guard copied != nil else { return }
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
+            withAnimation(.easeOut(duration: 0.2)) { copied = nil }
+        }
     }
 
     private func row(_ symbol: String, _ text: String) -> some View {
@@ -351,8 +361,25 @@ private struct DeviceInfoSection: View {
             Text(text)
                 .font(FlashbackFont.mono)
             Spacer(minLength: 0)
+            if copied == text {
+                HStack(spacing: 3) {
+                    Image(systemName: "checkmark")
+                    Text("コピーしました")
+                }
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(FlashbackColor.action)
+                .transition(.opacity)
+            }
         }
         .foregroundStyle(FlashbackColor.secondaryLabel)
+        .contentShape(Rectangle())                  // 行全体（余白含む）を長押し対象に
+        .onLongPressGesture(minimumDuration: 0.4) {
+            UIPasteboard.general.string = text       // メニューを挟まず即コピー（キーボードは閉じない）
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(.easeOut(duration: 0.15)) { copied = text }
+        }
+        .accessibilityHint("長押しでコピー")
+        .accessibilityAction(named: "コピー") { UIPasteboard.general.string = text }
     }
 }
 
