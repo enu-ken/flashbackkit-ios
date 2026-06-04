@@ -22,6 +22,8 @@ final class FlashbackPresenter {
     private var reportDetent: SheetDetentModel?
     /// シートの detent 変更を監視するデリゲート（自前で強参照して生かす）。
     private var reportSheetDelegate: ReportSheetDelegate?
+    /// info トーストの自動消去用の世代カウンタ（古いタイマーが新しいトーストを消さないように）。
+    private var infoToastGeneration = 0
 
     /// overlay window を前面シーンに設置する。トリガ用の UI（ボタン / ジェスチャ）は
     /// `triggerHost` を介して各 detector が載せる。
@@ -114,6 +116,21 @@ final class FlashbackPresenter {
         reportDetent = nil
     }
 
+    /// 許可プライミング（事前説明）のシート（`.medium`）を overlay 上に提示する。
+    /// FAB のグレータップなどレポートを開かない導線でも、OS 確認の前に「何のために
+    /// 画面録画の許可が要るか」を一枚挟むため。閉じる / スワイプは `dismissReport` 共通で畳む。
+    func presentPriming(onProceed: @escaping () -> Void, onLater: @escaping () -> Void) {
+        guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
+        let host = UIHostingController(rootView: PermissionPrimingView(onProceed: onProceed, onLater: onLater))
+        host.modalPresentationStyle = .pageSheet
+        if let sheet = host.sheetPresentationController {
+            sheet.detents = [.medium()]
+            sheet.prefersGrabberVisible = true
+        }
+        reportHost = host
+        root.present(host, animated: true)
+    }
+
     /// 「2回シェイクで起動」ヒント（中央アラート風カード）を最前面へ提示する。
     /// フローティングボタンを OFF にした直後に一度だけ呼ばれる想定。暗転スクリム付きの
     /// 透明ホストを `.overFullScreen` + `.crossDissolve` で重ね、OK で閉じる。
@@ -145,6 +162,20 @@ final class FlashbackPresenter {
         model.toast = .failure(message: message, onRetry: onRetry)
     }
 
+    /// 情報トースト（操作ヒント）。一定時間で自動的に消える。能動的な操作を伴わない
+    /// 一過性の案内（例: FAB を短くタップした時の「長押しでレポート」）に使う。
+    /// 世代カウンタで「この自動消去が出した info をまだ表示中の時だけ」消し、
+    /// 後から別トースト（進行中など）が乗った場合は誤って消さない。
+    func showInfo(_ message: String, duration: TimeInterval = 1.8) {
+        infoToastGeneration += 1
+        let generation = infoToastGeneration
+        model.toast = .info(message)
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) { [weak self] in
+            guard let self, self.infoToastGeneration == generation else { return }
+            if case .info = self.model.toast { self.model.toast = nil }
+        }
+    }
+
     /// トーストを消す。
     func hideToast() {
         model.toast = nil
@@ -170,15 +201,6 @@ final class FlashbackPresenter {
         root.present(host, animated: true)
     }
 
-    /// DEBUG 専用: 許可プライミングのシート（.medium）を単体で提示する（見た目確認用）。
-    func debugPresentPriming(onProceed: @escaping () -> Void, onLater: @escaping () -> Void) {
-        guard let root = window?.rootViewController, root.presentedViewController == nil else { return }
-        let host = UIHostingController(rootView: PrimingDebugHost(onProceed: onProceed, onLater: onLater))
-        host.modalPresentationStyle = .overFullScreen
-        host.view.backgroundColor = .clear
-        reportHost = host
-        root.present(host, animated: false)
-    }
     #endif
 
     // MARK: - 設置
@@ -255,12 +277,14 @@ private final class PassthroughWindow: UIWindow {
     }
 }
 
-/// トーストの内容（README 準拠で2種のみ）。
+/// トーストの内容。
 enum ToastContent {
     /// 進行中（オレンジのスピナー）。例:「記憶を辿っています…」。
     case progress(String)
     /// 失敗（赤アイコン＋青「再試行」）。自動では閉じない。
     case failure(message: String, onRetry: () -> Void)
+    /// 情報（操作ヒント。一定時間で自動消去）。例:「長押しでレポート」。
+    case info(String)
 }
 
 /// overlay UI の状態。
@@ -273,6 +297,7 @@ private final class OverlayModel: ObservableObject {
         switch toast {
         case .progress(let m): return "p:\(m)"
         case .failure(let m, _): return "f:\(m)"
+        case .info(let m): return "i:\(m)"
         case nil: return ""
         }
     }
@@ -306,6 +331,12 @@ private struct StatusOverlay: View {
                         .foregroundStyle(FlashbackColor.settingsLink)   // 青
                     }
                     .accessibilityLabel("再試行")
+                }
+            case .info(let message):
+                ToastCapsule {
+                    Image(systemName: "hand.tap")
+                        .foregroundStyle(FlashbackColor.action)   // オレンジ（長押し操作の誘導）
+                    Text(message)
                 }
             case nil:
                 EmptyView()
@@ -348,23 +379,6 @@ private struct ToastCapsule<Content: View>: View {
     }
 }
 
-#if DEBUG
-/// DEBUG 専用: 透明ホスト上に許可プライミングのシートを即提示する（見た目確認用）。
-private struct PrimingDebugHost: View {
-    let onProceed: () -> Void
-    let onLater: () -> Void
-    @State private var show = true
-
-    var body: some View {
-        Color.clear
-            .ignoresSafeArea()
-            .sheet(isPresented: $show) {
-                PermissionPrimingView(onProceed: onProceed, onLater: onLater)
-                    .presentationDetents([.medium])
-            }
-    }
-}
-#endif
 #else
 /// UIKit / SwiftUI が無い環境（macOS ホストビルド等）向けの no-op スタブ。
 final class FlashbackPresenter {
@@ -376,9 +390,11 @@ final class FlashbackPresenter {
         settings: FlashbackSettingsStore
     ) {}
     func dismissReport() {}
+    func presentPriming(onProceed: @escaping () -> Void, onLater: @escaping () -> Void) {}
     func presentShakeHint() {}
     func showProgress(_ message: String) {}
     func showFailure(_ message: String, onRetry: @escaping () -> Void) {}
+    func showInfo(_ message: String, duration: TimeInterval = 1.8) {}
     func hideToast() {}
 }
 #endif

@@ -171,6 +171,25 @@ final class FlashbackController {
     }
 
     #if canImport(UIKit)
+    /// FAB のグレー（録画オフ）タップから録画をオンにする。端末で初回はプライミング（事前説明）を
+    /// 挟んでから OS 確認へ、2回目以降は直接 `retryRecording`（OS 確認）。レポートを開かない FAB
+    /// 導線でも ReportView の「録画をオンにする」と同じ初回プライミング体験を保つ。
+    private func wakeRecordingFromFloatingButton() {
+        guard let settingsStore else { return }
+        guard !settingsStore.hasPrimedScreenRecording else {
+            retryRecording()
+            return
+        }
+        presenter.presentPriming(
+            onProceed: { [weak self] in
+                self?.settingsStore?.hasPrimedScreenRecording = true
+                self?.presenter.dismissReport()
+                self?.retryRecording()
+            },
+            onLater: { [weak self] in self?.presenter.dismissReport() }
+        )
+    }
+
     /// FAB トリガを生成・配線・設置する（トースト早出し含む）。
     private func installFloatingButton() {
         guard floatingButtonTrigger == nil, let host = presenter.triggerHost else { return }
@@ -186,6 +205,11 @@ final class FlashbackController {
             self.presenter.showProgress("記憶を辿っています…")
         }
         fab.onPressCancel = { [weak self] in self?.presenter.hideToast() }
+        // 録画オフ（グレー）でのタップ＝録画オン（起こす）。初見でも長押しを思いつかずに済む導線。
+        // 端末で初回はプライミング（事前説明）を挟んでから OS 確認へ。
+        fab.onWake = { [weak self] in self?.wakeRecordingFromFloatingButton() }
+        // 録画オン（オレンジ）での短タップ＝無反応で終わらせず長押しを促すヒント。
+        fab.onShortTapHint = { [weak self] in self?.presenter.showInfo("長押しでレポート") }
         fab.start()
         floatingButtonTrigger = fab
         detectors.append(fab)
@@ -235,7 +259,7 @@ final class FlashbackController {
 
     /// DEBUG 専用: 許可プライミングのシートを単体提示する（見た目確認用）。
     func debugPresentPriming() {
-        presenter.debugPresentPriming(
+        presenter.presentPriming(
             onProceed: { [weak self] in
                 self?.settingsStore?.hasPrimedScreenRecording = true
                 self?.presenter.dismissReport()

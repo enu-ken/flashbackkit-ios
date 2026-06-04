@@ -7,9 +7,12 @@ import UIKit
 /// `PassthroughWindow.hitTest` がボタン領域だけを拾い、それ以外はホストへ透過する。
 /// 物理的な振りが使えない据え置き端末でも確実に発火する手段。
 ///
-/// 操作性:
-/// - **長押し**（0.5 秒）で起動。押下中はマーク外周にプログレスリングが溜まる。
-///   袖や手が軽く触れた程度では誤爆しない。
+/// 操作性（録画状態で役割が変わる）:
+/// - 録画オフ（グレー＝寝てる）: **シングルタップで録画オン**（起こす）。初見でも自然に
+///   当たる導線にするため、寝てる状態は長押しを要求しない。
+/// - 録画オン（オレンジ＝起きてる）: **長押し**（0.5 秒）でレポート起動。押下中はマーク外周に
+///   プログレスリングが溜まり、袖や手が軽く触れた程度では誤爆しない。短くタップした時は
+///   無反応で終わらせず「長押しでレポート」のヒントを出す。
 /// - **ドラッグ**で位置を移動でき、離すと左右どちらか近い端へ吸着 / タックする。
 /// - 普段は半透明で控えめ、触れている間だけ濃く表示。
 /// - 初期位置は `FloatingButtonCorner` で四隅から指定可能。
@@ -26,6 +29,10 @@ final class FloatingButtonTrigger: TriggerDetecting {
     var onPressStart: (() -> Void)?
     /// 長押しが発火せず中断した時（早離し / ドラッグ転化 / 取消）。早出しトーストを消すため。
     var onPressCancel: (() -> Void)?
+    /// 録画オフ（グレー）状態でのシングルタップ。録画をオン（起こす）にするため。
+    var onWake: (() -> Void)?
+    /// 録画オン（オレンジ）状態での短いタップ。無反応で終わらせず長押しを促すヒント用。
+    var onShortTapHint: (() -> Void)?
 
     private weak var host: UIViewController?
     private let corner: FloatingButtonCorner
@@ -45,6 +52,8 @@ final class FloatingButtonTrigger: TriggerDetecting {
         button.onTrigger = { [weak self] in self?.onTrigger?() }
         button.onPressStart = { [weak self] in self?.onPressStart?() }
         button.onPressCancel = { [weak self] in self?.onPressCancel?() }
+        button.onWake = { [weak self] in self?.onWake?() }
+        button.onShortTapHint = { [weak self] in self?.onShortTapHint?() }
         hostView.addSubview(button)
         button.placeAvoidingTabBar(in: hostView, corner: corner)
         self.button = button
@@ -59,11 +68,15 @@ final class FloatingButtonTrigger: TriggerDetecting {
         button?.onTrigger = nil
         button?.onPressStart = nil
         button?.onPressCancel = nil
+        button?.onWake = nil
+        button?.onShortTapHint = nil
         button?.removeFromSuperview()
         button = nil
         onTrigger = nil
         onPressStart = nil
         onPressCancel = nil
+        onWake = nil
+        onShortTapHint = nil
     }
 }
 
@@ -97,6 +110,9 @@ private final class FloatingButtonView: UIView {
     /// 長押し開始（ゲージ充填の開始）。/ 中断（未発火で終了）。
     var onPressStart: (() -> Void)?
     var onPressCancel: (() -> Void)?
+    /// 録画オフ（グレー）でのシングルタップ＝録画オン。/ 録画オン（オレンジ）での短タップ＝ヒント。
+    var onWake: (() -> Void)?
+    var onShortTapHint: (() -> Void)?
     /// この押下で発火済みか。touchesEnded での誤キャンセル（トースト消し）を防ぐ。
     private var didFire = false
     /// 進行中トーストの早出しを少し遅らせる予約（ドラッグ移動だけの時の一瞬表示を防ぐ）。
@@ -148,10 +164,9 @@ private final class FloatingButtonView: UIView {
         alpha = idleAlpha
         isAccessibilityElement = true
         accessibilityLabel = "Flashback を起動"
-        accessibilityHint = "長押しで起動"
 
         setUpMarkLayers()
-        applyAppearance()
+        applyAppearance()                          // accessibilityHint も状態に応じてここで設定する。
 
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
         longPress.minimumPressDuration = Self.pressDuration
@@ -243,6 +258,10 @@ private final class FloatingButtonView: UIView {
             ? UIColor.white.withAlphaComponent(0.5)   // 録画中
             : UIColor.white.withAlphaComponent(0.6)   // 停止中（休止）
         wedgeLayer.fillColor = wedgeColor.cgColor
+        // 操作ヒントも録画状態へ連動（タック中の「タップで表示」は呼び元が後から上書きする）。
+        if !isTucked {
+            accessibilityHint = recordingEnabled ? "長押しでレポートを起動" : "タップで録画を開始"
+        }
     }
 
     // MARK: - 長押しプログレス（ゲージ＋opacity＋微増スケール）
@@ -422,9 +441,34 @@ private final class FloatingButtonView: UIView {
     }
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
-        // タック中のタップは引き出す。通常時のタップは無視（長押しのみ発火）。
-        guard isTucked, let parent = superview else { return }
-        unTuck(in: parent)
+        // タック中のタップは引き出す。
+        if isTucked {
+            if let parent = superview { unTuck(in: parent) }
+            return
+        }
+        // 録画オフ（グレー＝寝てる）: タップで録画オン（起こす）。初見でも当たる導線。
+        // 録画オン（オレンジ＝起きてる）: 短タップは無反応にせず長押しを促すヒントを出す。
+        if recordingEnabled {
+            onShortTapHint?()
+        } else {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            onWake?()
+        }
+    }
+
+    /// VoiceOver の「アクティベート」（ダブルタップ）。長押しは VoiceOver では行いにくいため、
+    /// 状態に応じた本来の操作（録画オフ＝録画オン / 録画オン＝レポート起動）へ直接橋渡しする。
+    override func accessibilityActivate() -> Bool {
+        if isTucked {
+            if let parent = superview { unTuck(in: parent) }
+            return true
+        }
+        if recordingEnabled {
+            onTrigger?()
+        } else {
+            onWake?()
+        }
+        return true
     }
 
     @objc private func handlePan(_ recognizer: UIPanGestureRecognizer) {
@@ -444,8 +488,7 @@ private final class FloatingButtonView: UIView {
                 let pullOut = tuckedAtMaxX ? -t.x : t.x
                 if pullOut > 40 {
                     isTucked = false
-                    applyAppearance()
-                    accessibilityHint = "長押しで起動"
+                    applyAppearance()              // ヒントは録画状態に応じて applyAppearance が設定。
                     // 現在地（端の外）を起点に通常ドラッグへ滑らかに引き継ぐ。
                     dragStartCenter = center
                     lastRawCenter = center
@@ -508,8 +551,7 @@ private final class FloatingButtonView: UIView {
     private func unTuck(in parent: UIView) {
         guard isTucked else { return }
         isTucked = false
-        applyAppearance()
-        accessibilityHint = "長押しで起動"
+        applyAppearance()                          // ヒントは録画状態に応じて applyAppearance が設定。
         let target = clampedCenter(CGPoint(x: tuckedAtMaxX ? .greatestFiniteMagnitude : -.greatestFiniteMagnitude,
                                            y: center.y), in: parent)
         savePosition(edgeIsTrailing: tuckedAtMaxX, y: target.y, tucked: false, in: parent)
