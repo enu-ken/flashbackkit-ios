@@ -285,7 +285,16 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
         }
         // バックアップ検知：外部キャプチャ中にフレームが stallThreshold 秒途切れたら割り込み。
         // （capturedDidChange を取りこぼす / isCaptured を立てる端末で true 通知が来ない場合の保険）
-        if let idle, idle > Self.stallThreshold, Self.screenIsCaptured() {
+        //
+        // ゲート `inAppMarksCaptured == false` 必須：`screenIsCaptured()` が「外部キャプチャ在り」を
+        // 意味するのは、アプリ内録画が isCaptured を立てない端末だけ。立てる端末（==true）では録画中は
+        // 常に isCaptured=true なので門番が効かず、静止画面（ReplayKit は画面変化時しかフレームを供給
+        // しない＝正常な無入力）を誤って割り込み扱いし、停止→自動再開を反復してしまう（FAB ちらつき）。
+        // 即時パス側（screenCaptureStateChanged）と同じゲートを掛けて対称にする。
+        // TODO(PoC): inAppMarksCaptured==true の端末では本ウォッチドッグが無効化されるため、コント
+        // ロールセンター画面収録との競合は拾えない（通話/別アプリは可用性 delegate が拾う）。isCaptured
+        // 以外の判別手段が要るが現状 API が無く、誤爆ループを避ける方を優先する。
+        if let idle, idle > Self.stallThreshold, inAppMarksCaptured == false, Self.screenIsCaptured() {
             interruptForExternalCapture(reason: "外部キャプチャ中にフレーム供給停止を検知")
         }
     }
