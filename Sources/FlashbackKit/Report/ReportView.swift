@@ -71,7 +71,7 @@ struct ReportView: View {
                         } else {
                             unavailableInvitation    // この端末/環境では録画不可。CTA なし。
                         }
-                        DeviceInfoSection(device: device)
+                        DeviceInfoSection(device: device, insertionTitle: hasClip ? $title : nil)
                             .id(Self.deviceInfoAnchor)
                     }
                     .padding(.horizontal, 16)
@@ -329,12 +329,37 @@ struct ReportView: View {
 }
 
 /// 端末情報。枠で囲わず、控えめなグレー文字＋SF Mono で補足的に示す（左寄せ・スタック）。
-/// 各行は**長押しで即コピー**（メニューを挟まない）。長押しジェスチャはフォーカスを奪わないので
-/// **キーボードは開いたまま**＝コピーしてそのままタイトルへ貼り付けられる。
+/// クリップがある時は各行末尾に ＋ ボタンを出し、押すとタイトル末尾の「（…）」へその値を挿入する
+/// （例:「テスト動画」→「テスト動画（iPhone 15 Pro）」→「テスト動画（iPhone 15 Pro/iOS 26.5）」）。
+/// 追加済みの行はボタンが −（除去）へ変わり、押すとその値を取り除く。ボタンはフォーカスを奪わない
+/// ので、タイトル入力中（キーボード表示中）でもそのまま挿入/除去できる。
 private struct DeviceInfoSection: View {
     let device: DeviceInfo
-    /// 直近にコピーした行の値（一瞬「コピーしました」を出して自動で消す）。
-    @State private var copied: String?
+    /// タイトルへ環境情報を挿入/除去するためのバインディング。nil（クリップ無し）の時は ＋/− を出さない。
+    var insertionTitle: Binding<String>? = nil
+    /// タイトルへ追加済みのフィールド（挿入順を保持し、その順で「（A/B）」を組む）。
+    @State private var added: [Field] = []
+
+    /// 表示する3項目。
+    private enum Field: CaseIterable {
+        case model, os, app
+        var symbol: String {
+            switch self {
+            case .model: return "iphone"
+            case .os: return "gearshape"
+            case .app: return "app"
+            }
+        }
+    }
+
+    /// 行に出す（＝タイトルへ挿入する）値。
+    private func value(_ field: Field) -> String {
+        switch field {
+        case .model: return device.modelName
+        case .os: return "\(device.systemName) \(device.systemVersion)"
+        case .app: return "v\(device.appVersion) (\(device.buildNumber))"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -342,44 +367,62 @@ private struct DeviceInfoSection: View {
                 .font(FlashbackFont.caption)
                 .foregroundStyle(FlashbackColor.tertiaryLabel)
             // 人が読む用途なので識別子は付けない（記録用の displayModel はログ側）。
-            row("iphone", device.modelName)
-            row("gearshape", "\(device.systemName) \(device.systemVersion)")
-            row("app", "v\(device.appVersion) (\(device.buildNumber))")
-        }
-        // コピー表示は約1.2秒で自動的に消す（タイマー状態を持たず id 連動の task で）。
-        .task(id: copied) {
-            guard copied != nil else { return }
-            try? await Task.sleep(nanoseconds: 1_200_000_000)
-            withAnimation(.easeOut(duration: 0.2)) { copied = nil }
+            ForEach(Field.allCases, id: \.self) { row($0) }
         }
     }
 
-    private func row(_ symbol: String, _ text: String) -> some View {
+    private func row(_ field: Field) -> some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol)
+            Image(systemName: field.symbol)
                 .frame(width: 16)
-            Text(text)
+            Text(value(field))
                 .font(FlashbackFont.mono)
             Spacer(minLength: 0)
-            if copied == text {
-                HStack(spacing: 3) {
-                    Image(systemName: "checkmark")
-                    Text("コピーしました")
-                }
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(FlashbackColor.action)
-                .transition(.opacity)
+            if let title = insertionTitle {
+                insertButton(field, title: title)
             }
         }
         .foregroundStyle(FlashbackColor.secondaryLabel)
-        .contentShape(Rectangle())                  // 行全体（余白含む）を長押し対象に
-        .onLongPressGesture(minimumDuration: 0.4) {
-            UIPasteboard.general.string = text       // メニューを挟まず即コピー（キーボードは閉じない）
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(.easeOut(duration: 0.15)) { copied = text }
+    }
+
+    /// ＋（追加）/ −（除去）トグル。押すとタイトル末尾の「（…）」を組み直す。
+    private func insertButton(_ field: Field, title: Binding<String>) -> some View {
+        let isAdded = added.contains(field)
+        return Button {
+            toggle(field, title: title)
+        } label: {
+            Image(systemName: isAdded ? "minus.circle.fill" : "plus.circle")
+                .font(.system(size: 18))
+                .foregroundStyle(FlashbackColor.action)
+                .frame(width: 28, height: 28)        // タップ域を確保
+                .contentShape(Rectangle())
         }
-        .accessibilityHint("長押しでコピー")
-        .accessibilityAction(named: "コピー") { UIPasteboard.general.string = text }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isAdded ? "タイトルから\(value(field))を除去" : "タイトルへ\(value(field))を追加")
+    }
+
+    /// タイトル末尾の「（…）」を一旦剥がして base を復元し、added をトグルして組み直す。
+    /// 末尾が想定の「（…）」でない（手編集された）場合は base をそのままにして末尾へ付け直す。
+    private func toggle(_ field: Field, title: Binding<String>) {
+        let oldSuffix = suffix(for: added)
+        var base = title.wrappedValue
+        if !oldSuffix.isEmpty, base.hasSuffix(oldSuffix) {
+            base.removeLast(oldSuffix.count)
+        }
+        if let idx = added.firstIndex(of: field) {
+            added.remove(at: idx)
+        } else {
+            added.append(field)
+        }
+        title.wrappedValue = base + suffix(for: added)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// 追加済みフィールドから「（ A / B / … ）」を作る（空なら空文字）。
+    /// 区切りの前後＋括弧の内側にも余白を1つずつ入れる。
+    private func suffix(for fields: [Field]) -> String {
+        guard !fields.isEmpty else { return "" }
+        return "（ " + fields.map(value).joined(separator: " / ") + " ）"
     }
 }
 
