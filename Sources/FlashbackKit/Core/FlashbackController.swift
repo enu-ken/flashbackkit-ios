@@ -59,6 +59,9 @@ final class FlashbackController {
         if promptOnLaunch {
             recorder.startBuffering(seconds: bufferSeconds)
         }
+        // overlay 設置がシーン未接続で保留された場合、シーン接続後に triggerHost 依存の FAB を
+        // 改めて載せる（SceneDelegate アプリで didFinishLaunching から start() を呼んでも UI が出る）。
+        presenter.onDeferredInstall = { [weak self] in self?.handleDeferredOverlayInstall() }
         presenter.install()
 
         settingsStore = FlashbackSettingsStore(
@@ -112,6 +115,17 @@ final class FlashbackController {
         settingsStore = nil
         recorder.stopBuffering()
         presenter.uninstall()
+    }
+
+    /// overlay 設置が（シーン未接続で）保留→シーン接続後に完了した時に呼ばれる。
+    /// triggerHost 依存の FAB を（構成に含まれ・未設置なら）改めて設置する。
+    /// シェイクは CoreMotion ベースで window 非依存のため、ここでの再設置は不要。
+    private func handleDeferredOverlayInstall() {
+        #if canImport(UIKit)
+        if configuration.triggers.contains(.floatingButton) {
+            installFloatingButton()
+        }
+        #endif
     }
 
     // MARK: - 設定の適用

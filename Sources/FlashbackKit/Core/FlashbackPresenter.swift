@@ -25,11 +25,31 @@ final class FlashbackPresenter {
     /// info トーストの自動消去用の世代カウンタ（古いタイマーが新しいトーストを消さないように）。
     private var infoToastGeneration = 0
 
+    /// install() が（アクティブシーン未接続で）保留され、後からシーン接続で実際に設置できた時に
+    /// 一度だけ呼ぶフック。`triggerHost` 依存の後段（FAB など）をコントローラ側が再設置するために使う。
+    var onDeferredInstall: (() -> Void)?
+
+    /// シーン未接続で install() を保留し、シーン接続/活性化を待っている間だけ生きる観測子。
+    private var sceneObserver: SceneConnectionObserver?
+
     /// overlay window を前面シーンに設置する。トリガ用の UI（ボタン / ジェスチャ）は
     /// `triggerHost` を介して各 detector が載せる。
+    ///
+    /// SceneDelegate 採用アプリで `didFinishLaunching`（シーン接続前）から呼ばれた場合は、
+    /// アクティブな `UIWindowScene` がまだ無いため設置を**保留**し、シーン接続後に自動で設置する。
+    /// これで呼び出しタイミング（didFinishLaunching / scene(_:willConnectTo:) / onAppear）に
+    /// 依存せず overlay が必ず立つ。
     func install() {
-        guard window == nil, let scene = Self.activeScene() else { return }
+        guard window == nil else { return }
+        guard let scene = Self.activeScene() else {
+            observeSceneConnectionForDeferredInstall()
+            return
+        }
+        finishInstall(in: scene)
+    }
 
+    /// 実際に overlay window を生成して設置する（シーンが得られた後の共通処理）。
+    private func finishInstall(in scene: UIWindowScene) {
         let window = PassthroughWindow(windowScene: scene)
         window.windowLevel = .alert + 1
         window.backgroundColor = .clear
@@ -43,6 +63,26 @@ final class FlashbackPresenter {
         installStatusOverlay(in: root)
     }
 
+    /// アクティブシーン未接続のため設置を保留し、シーン接続/活性化通知を待つ。
+    private func observeSceneConnectionForDeferredInstall() {
+        guard sceneObserver == nil else { return }                 // 既に待機中
+        FlashbackLog.lifecycle.info("overlay 設置を保留：アクティブな UIWindowScene が未接続。シーン接続後に自動設置する（SceneDelegate アプリで didFinishLaunching から start() を呼んだ場合など）。")
+        sceneObserver = SceneConnectionObserver { [weak self] in self?.tryDeferredInstall() }
+    }
+
+    /// 保留していた設置を、アクティブシーンが得られ次第完了させる。完了後に onDeferredInstall を一度呼ぶ。
+    private func tryDeferredInstall() {
+        guard window == nil else {                                 // 既に他経路で設置済み
+            sceneObserver = nil
+            return
+        }
+        guard let scene = Self.activeScene() else { return }       // まだ得られない（次の通知を待つ）
+        finishInstall(in: scene)
+        sceneObserver = nil                                        // 監視終了（deinit で removeObserver）
+        FlashbackLog.lifecycle.info("シーン接続を検知し overlay を自動設置（保留分）。")
+        onDeferredInstall?()
+    }
+
     /// トリガ detector が UI（フローティングボタン）を載せるための
     /// overlay root view controller。`install()` 後に有効。
     var triggerHost: UIViewController? {
@@ -51,6 +91,7 @@ final class FlashbackPresenter {
 
     /// overlay window を撤去する。
     func uninstall() {
+        sceneObserver = nil                                        // 保留中のシーン待ち観測を解除
         reportHost?.dismiss(animated: false)
         reportHost = nil
         reportSheetDelegate = nil
@@ -250,6 +291,36 @@ private final class WeakVCBox {
     weak var vc: UIViewController?
 }
 
+/// アクティブシーン未接続時の install() 保留→自動設置のため、シーン接続/活性化通知を待つ観測子。
+/// `NotificationCenter` の selector ターゲットには ObjC 対応オブジェクトが要るため NSObject に切り出す
+/// （`FlashbackPresenter` 自体は NSObject ではない）。通知は main 配送されるが、Swift6 のため
+/// `@MainActor` へ hop してからホストへ知らせる。
+@MainActor
+private final class SceneConnectionObserver: NSObject {
+    private let onConnect: () -> Void
+
+    init(onConnect: @escaping () -> Void) {
+        self.onConnect = onConnect
+        super.init()
+        let nc = NotificationCenter.default
+        // willConnect（接続）と didActivate（活性化）の早い方で拾う。tryDeferredInstall 側が
+        // 「設置済み / シーン未取得」を冪等にガードするので二重発火は無害。
+        nc.addObserver(self, selector: #selector(sceneConnected),
+                       name: UIScene.willConnectNotification, object: nil)
+        nc.addObserver(self, selector: #selector(sceneConnected),
+                       name: UIScene.didActivateNotification, object: nil)
+    }
+
+    /// 通知コールバック（背景スレッドで来うるため nonisolated）。値は使わず `@MainActor` へ hop する。
+    @objc nonisolated private func sceneConnected() {
+        Task { @MainActor [weak self] in self?.onConnect() }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+}
+
 /// レポートのハーフモーダルが `.large`（展開）まで開いているかを SwiftUI 側へ伝える。
 /// 動画プレビューの拡大などに使う。`ReportSheetDelegate` が detent 変化で更新する。
 @MainActor
@@ -389,6 +460,7 @@ private struct ToastCapsule<Content: View>: View {
 #else
 /// UIKit / SwiftUI が無い環境（macOS ホストビルド等）向けの no-op スタブ。
 final class FlashbackPresenter {
+    var onDeferredInstall: (() -> Void)?
     func install() {}
     func uninstall() {}
     func presentReport(

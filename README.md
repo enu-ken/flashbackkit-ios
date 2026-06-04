@@ -152,6 +152,11 @@ Flashback.start(
 )
 ```
 
+> [!NOTE]
+> Call site and timing don't matter. If you call `start()` before your `UIWindowScene`
+> has connected (e.g. from `didFinishLaunching` in a `SceneDelegate`-based app), the
+> overlay installs automatically as soon as the scene is ready.
+
 From here a tester triggers a report (shake twice, or the floating button), trims the
 clip, types a title, and taps **Share (↑)** — which opens the system share sheet *and*
 fires your `onReport`.
