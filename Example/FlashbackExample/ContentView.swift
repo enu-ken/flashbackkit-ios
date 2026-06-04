@@ -100,6 +100,17 @@ private struct HomeTab: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+
+                #if DEBUG
+                // 録画状態の実機観察用 HUD（割り込み検知の挙動確認）。0.25秒更新。
+                TimelineView(.periodic(from: startDate, by: 0.25)) { _ in
+                    Text(Flashback.debugRecordingStatusLine())
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.orange)
+                        .padding(.horizontal, 12)
+                        .multilineTextAlignment(.center)
+                }
+                #endif
             }
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity)

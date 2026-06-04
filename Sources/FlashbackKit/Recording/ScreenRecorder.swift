@@ -1,6 +1,7 @@
 #if canImport(ReplayKit)
 import ReplayKit
 import AVFoundation
+import UIKit
 
 /// ReplayKit のアプリ内キャプチャ上に作るリングバッファ。
 ///
@@ -14,7 +15,7 @@ import AVFoundation
 /// キュー上で行う。非 Sendable な `CMSampleBuffer` はメインに跳ねず、キャプチャの
 /// 背景ハンドラから直接 writer のキューへ渡す。
 @MainActor
-final class ScreenRecorder {
+final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     private let recorder = RPScreenRecorder.shared()
     /// 現在の ring（@MainActor 側の参照。書き出し / 後始末用）。
     private var ring: SegmentRingWriter?
@@ -26,6 +27,23 @@ final class ScreenRecorder {
     private var isCapturing = false
     /// 取り込みが**確定**したか（startCapture 成功＝許可後だけ true）。UI の「録画中/停止中」はこちら。
     private var captureConfirmed = false
+
+    /// 録画オンの意思（host/ユーザが録画したい状態か）。明示停止で false。割り込み復帰の自動再開判定に使う。
+    private var wantsRecording = false
+    /// OS 録画/ミラーリング等の割り込みで一時停止中か。復帰時の自動再開はこのフラグが立っている時だけ。
+    private var interruptedBySystem = false
+    /// 直近に要求された保持秒数。割り込み復帰の自動再開で同じ秒数で開始するため保持する。
+    private var desiredBufferSeconds: TimeInterval = 0
+
+    /// フレーム供給を監視するウォッチドッグ。外部キャプチャ中に供給が途切れたら割り込みとして停止する。
+    private var watchdog: Task<Void, Never>?
+    /// 映像フレームが途切れて「割り込み」とみなすまでの無入力秒数。外部キャプチャ中だけ判定する門番つき
+    /// なので短くても安全（実機で静止画面でもフレームは途切れず age≈0、外部キャプチャ重畳でのみ急増する）。
+    /// 0.3s：即応性と、通常操作の一時的フレーム途切れによる誤検知/churn 回避のバランス点。
+    private static let stallThreshold: Double = 0.3
+    /// アプリ内録画自体が `UIScreen.isCaptured` を立てるか（端末/iOS 依存）。録画開始直後に一度だけ probe。
+    /// `false` と分かれば「`isCaptured` が true へ変化＝外部キャプチャ開始」と確定でき、即座に割り込める。
+    private var inAppMarksCaptured: Bool?
 
     /// 画面録画が利用可能か（Simulator / 通話中 / 別アプリ録画中などは false）。
     /// 事前照会できる権限 API は無いため、設定画面の権限表示はこの可用性を用いる。
@@ -58,8 +76,20 @@ final class ScreenRecorder {
     ///   ハンドラ内では `self` のこのプロパティを参照して通知する（クロージャを box 化しない）。
     var onCaptureStarted: ((Bool) -> Void)?
 
+    override init() {
+        super.init()
+        // 可用性変化（通話など）と、外部キャプチャ（OS画面収録/ミラーリング）の開始終了を監視する。
+        recorder.delegate = self
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(screenCaptureStateChanged),
+            name: UIScreen.capturedDidChangeNotification, object: nil)
+    }
+
     func startBuffering(seconds: TimeInterval) {
         guard !isCapturing else { return }                 // 冪等
+        wantsRecording = true                              // 録画オンの意思（割り込み復帰の自動再開判定用）
+        desiredBufferSeconds = seconds
+        inAppMarksCaptured = nil                            // 端末特性は今回のセッションで取り直す
         SegmentRingWriter.purgeTempFiles()                 // 前回の残骸を掃除
 
         guard isAvailable else {                           // Simulator / 未対応（Sim は上の可用性ゲートで false 固定）
@@ -72,6 +102,7 @@ final class ScreenRecorder {
         let ring = SegmentRingWriter(bufferSeconds: seconds)
         self.ring = ring
         ringHolder.set(ring)
+        ringHolder.resetClock()                            // フレーム時計を初期化（誤検知防止）
         isCapturing = true
 
         // self を捕捉しないよう holder を local に束ねて渡す（holder は Sendable）。
@@ -102,6 +133,7 @@ final class ScreenRecorder {
                     self.captureConfirmed = true           // ここで初めて「録画中」確定（許可後）
                     self.onCaptureStarted?(true)           // retry 一回限り（justEnabled 用）
                     self.onRecordingStateChanged?(true)    // 確定: 録画オン（UI 監視更新）
+                    self.startWatchdog()                   // フレーム供給の途絶（割り込み）を監視開始
                 }
             }
         })
@@ -124,7 +156,17 @@ final class ScreenRecorder {
     }
 
     func stopBuffering() {
+        // 明示停止：以降は割り込み復帰でも自動再開しない。
+        wantsRecording = false
+        interruptedBySystem = false
+        teardownCapture(notify: true)
+    }
+
+    /// capture を停止し ring を破棄する（録画オフ確定通知つき）。明示停止と割り込み一時停止で共用。
+    /// `wantsRecording` / `interruptedBySystem` は変更しない（呼び出し側が用途に応じて設定する）。
+    private func teardownCapture(notify: Bool) {
         guard isCapturing else { return }                  // 冪等
+        watchdog?.cancel(); watchdog = nil                 // フレーム監視を停止
         isCapturing = false
         let wasConfirmed = captureConfirmed
         captureConfirmed = false
@@ -134,13 +176,118 @@ final class ScreenRecorder {
         recorder.stopCapture { @Sendable _ in }
         ring?.teardown()
         ring = nil
-        if wasConfirmed { onRecordingStateChanged?(false) }  // 確定: 録画オフ
+        if notify && wasConfirmed { onRecordingStateChanged?(false) }  // 確定: 録画オフ
     }
 
     /// 現在のバッファを一時 .mp4 に書き出して URL を返す。
     func exportBufferedClip() async throws -> URL {
         guard let ring, isCapturing else { throw FlashbackError.recordingUnavailable }
         return try await ring.export()
+    }
+
+    #if DEBUG
+    /// DEBUG: 直近映像フレームからの経過秒（nil=未受信）。割り込み検知しきい値の調整用。
+    var debugFrameAge: Double? { ringHolder.secondsSinceLastVideo() }
+    /// DEBUG: 画面が外部キャプチャ中か（`UIScreen.isCaptured`）。
+    var debugScreenIsCaptured: Bool { Self.screenIsCaptured() }
+    /// DEBUG: このセッションでアプリ内録画自体が isCaptured を立てたか（probe 結果。nil=未判定）。
+    var debugInAppMarksCaptured: Bool? { inAppMarksCaptured }
+    #endif
+
+    // MARK: - 外部キャプチャ（OS画面収録/ミラーリング/通話）との競合
+
+    /// アプリ内キャプチャと OS の画面収録/ミラーリングは排他で、外部キャプチャが始まるとアプリ内
+    /// キャプチャのフレーム供給が止まり（＝バッファが凍り）、しかも完了ハンドラも呼ばれずセッションも
+    /// 復帰しない。そこで **外部キャプチャ中にフレームが途切れたら割り込みとみなして完全停止**
+    /// （OFF・凍ったバッファ破棄）し、**外部キャプチャが終わったら自動再開**する。
+    ///
+    /// 検知＝フレーム供給ウォッチドッグ ＋ `UIScreen.isCaptured` 門番（外部キャプチャが在る時だけ割り込み
+    /// 扱い。静止画面でフレームが疎な時の誤検知を防ぐ）。復帰＝`UIScreen.capturedDidChangeNotification`
+    /// と `RPScreenRecorder` 可用性で拾う。
+
+    /// 外部キャプチャによる割り込み：完全停止して凍ったバッファを捨てる。`isCapturing=false` にするので、
+    /// 復帰時の `startBuffering` 自動再開・ユーザの手動再オンが効く（セッション維持だと冪等ガードで弾かれる）。
+    private func interruptForExternalCapture(reason: String) {
+        guard isCapturing else { return }
+        FlashbackLog.lifecycle.info("\(reason, privacy: .public)。録画を停止し凍ったバッファを破棄（割り込み）。")
+        interruptedBySystem = true                         // 復帰時に自動再開する目印
+        teardownCapture(notify: true)                      // OFF 確定（FAB グレー）＋ セッション停止＋ ring 破棄
+    }
+
+    /// 外部キャプチャ終了 / 可用性復帰時の自動再開。録画意思が残り・二重開始でなく・外部キャプチャが
+    /// もう無い時だけ実行する。
+    private func attemptResume(reason: String) {
+        guard interruptedBySystem, wantsRecording, !isCapturing, !Self.screenIsCaptured() else { return }
+        interruptedBySystem = false
+        FlashbackLog.lifecycle.info("\(reason, privacy: .public)。録画を自動再開。")
+        startBuffering(seconds: desiredBufferSeconds)
+    }
+
+    /// 画面が外部からキャプチャ（OS画面収録 / AirPlay / ミラーリング）されているか。
+    private static func screenIsCaptured() -> Bool {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+        return scene?.screen.isCaptured ?? false
+    }
+
+    private func handleAvailabilityChange(available: Bool) {
+        if available { attemptResume(reason: "画面録画が利用可能に復帰") }
+        else { interruptForExternalCapture(reason: "画面録画が利用不可に（通話/別アプリ等）") }
+    }
+
+    /// ReplayKit の可用性変化コールバック（背景スレッドで来うるため `nonisolated`）。
+    /// 値は読まず `@MainActor` へ hop し、`self`（MainActor 隔離・Sendable）経由で処理する。
+    nonisolated func screenRecorderDidChangeAvailability(_ screenRecorder: RPScreenRecorder) {
+        let available = screenRecorder.isAvailable
+        Task { @MainActor [weak self] in self?.handleAvailabilityChange(available: available) }
+    }
+
+    /// `UIScreen.capturedDidChangeNotification`（外部キャプチャの開始/終了）。**復帰のトリガにのみ使う**
+    /// （開始の検知はウォッチドッグが担当：アプリ内キャプチャ自身が `isCaptured` を立てる端末でも
+    /// 自分の録画開始を誤って割り込み扱いしないため）。main で来うるが Swift6 のため hop する。
+    @objc nonisolated private func screenCaptureStateChanged() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            if Self.screenIsCaptured() {
+                // アプリ内録画が isCaptured を立てない端末では、true への変化＝外部キャプチャ開始が確定。
+                // 録画開始とほぼ同時に即グレーへ。立てる端末/未判定は watchdog に委ねる（誤爆防止）。
+                if self.inAppMarksCaptured == false {
+                    self.interruptForExternalCapture(reason: "外部キャプチャ（画面収録/ミラーリング）開始を検知")
+                }
+            } else {
+                self.attemptResume(reason: "外部キャプチャが終了")
+            }
+        }
+    }
+
+    // MARK: - フレーム供給ウォッチドッグ（割り込み検知）
+
+    /// 取り込み中、**外部キャプチャがあるのに**映像フレームが `stallThreshold` 秒途切れたら割り込みと
+    /// みなして停止する。コントロールセンターの画面収録など可用性 delegate が発火しない経路を拾う。
+    private func startWatchdog() {
+        watchdog?.cancel()
+        watchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 100_000_000)   // 0.1s 刻み（しきい値より細かく刻んで素早く検知）
+                guard let self, self.isCapturing else { return }
+                self.checkStall()
+            }
+        }
+    }
+
+    private func checkStall() {
+        guard captureConfirmed else { return }
+        let idle = ringHolder.secondsSinceLastVideo()
+        // 端末特性 probe：録画開始後の最初のフレーム時点（＝通常は外部キャプチャ無し）で、アプリ内録画
+        // 自体が UIScreen.isCaptured を立てるかを一度だけ記録する。
+        if inAppMarksCaptured == nil, idle != nil {
+            inAppMarksCaptured = Self.screenIsCaptured()
+        }
+        // バックアップ検知：外部キャプチャ中にフレームが stallThreshold 秒途切れたら割り込み。
+        // （capturedDidChange を取りこぼす / isCaptured を立てる端末で true 通知が来ない場合の保険）
+        if let idle, idle > Self.stallThreshold, Self.screenIsCaptured() {
+            interruptForExternalCapture(reason: "外部キャプチャ中にフレーム供給停止を検知")
+        }
     }
 }
 
@@ -150,15 +297,33 @@ final class ScreenRecorder {
 private final class RingHolder: @unchecked Sendable {
     private let lock = NSLock()
     private var ring: SegmentRingWriter?
+    /// 最後に**映像**サンプルを受け取った単調時刻（ns）。0 = まだ受けてない。
+    /// OS録画等でフレーム供給が止まる割り込みを、ウォッチドッグで検知するのに使う。
+    private var lastVideoNanos: UInt64 = 0
 
     func set(_ newRing: SegmentRingWriter?) {
         lock.lock(); defer { lock.unlock() }
         ring = newRing
     }
 
+    /// 新規キャプチャ開始時にフレーム時計をリセットする（前回の古い時刻で誤検知しないように）。
+    func resetClock() {
+        lock.lock(); lastVideoNanos = 0; lock.unlock()
+    }
+
     func ingest(_ sampleBuffer: CMSampleBuffer, type: RPSampleBufferType) {
-        lock.lock(); let current = ring; lock.unlock()
+        lock.lock()
+        let current = ring
+        if type == .video { lastVideoNanos = DispatchTime.now().uptimeNanoseconds }
+        lock.unlock()
         current?.ingest(sampleBuffer, type: type)
+    }
+
+    /// 最後の映像サンプルからの経過秒。まだ一度も受けてなければ nil。
+    func secondsSinceLastVideo() -> Double? {
+        lock.lock(); let last = lastVideoNanos; lock.unlock()
+        guard last != 0 else { return nil }
+        return Double(DispatchTime.now().uptimeNanoseconds &- last) / 1_000_000_000
     }
 }
 
@@ -395,5 +560,10 @@ final class ScreenRecorder {
     func changeBufferSeconds(_ seconds: TimeInterval) {}
     func stopBuffering() {}
     func exportBufferedClip() async throws -> URL { throw FlashbackError.notImplemented }
+    #if DEBUG
+    var debugFrameAge: Double? { nil }
+    var debugScreenIsCaptured: Bool { false }
+    var debugInAppMarksCaptured: Bool? { nil }
+    #endif
 }
 #endif

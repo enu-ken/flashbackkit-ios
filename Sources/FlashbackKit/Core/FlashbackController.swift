@@ -287,6 +287,13 @@ final class FlashbackController {
         settingsStore?.hasSeenShakeHint = false
     }
 
+    /// DEBUG 専用: 録画状態の一行ステータス（割り込み検知の挙動を実機で観察する用）。
+    func debugRecordingStatusLine() -> String {
+        let age = recorder.debugFrameAge.map { String(format: "%.1f", $0) } ?? "—"
+        let marks = recorder.debugInAppMarksCaptured.map { $0 ? "YES" : "no" } ?? "?"
+        return "rec=\(recorder.isRecording ? "ON" : "off")  age=\(age)s  isCaptured=\(recorder.debugScreenIsCaptured ? "YES" : "no")  marks=\(marks)"
+    }
+
     /// DEBUG 専用: 進行中トーストを表示する（見た目確認用）。
     func debugShowProgressToast() {
         presenter.showProgress("記憶を辿っています…")

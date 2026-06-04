@@ -76,6 +76,13 @@ public extension Flashback {
         FlashbackController.shared.debugResetShakeHint()
     }
 
+    /// DEBUG 専用: 録画状態の一行ステータス（rec / フレーム経過秒 / isCaptured / probe）。
+    /// 割り込み検知の挙動を実機で観察するための簡易 HUD 表示に使う。
+    @MainActor
+    static func debugRecordingStatusLine() -> String {
+        FlashbackController.shared.debugRecordingStatusLine()
+    }
+
     /// DEBUG 専用: トースト（進行中 / 失敗）を表示する（見た目確認用）。
     /// - Parameter kind: `"failure"` で失敗トースト、それ以外は進行中トースト。
     @MainActor
