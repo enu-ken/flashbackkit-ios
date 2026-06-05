@@ -69,6 +69,11 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// （retry 一回限りの `onCaptureStarted` とは別。こちらは start() で一度だけ配線し常駐。）
     var onRecordingStateChanged: ((Bool) -> Void)?
 
+    /// 外部キャプチャ（OS画面収録/ミラーリング/通話等）による**中断**と**自動再開**だけを通知する
+    /// `@MainActor` フック。`true`=中断（割り込みで停止）/`false`=再開。手動の on/off とは別経路で、
+    /// 中断/再開のトースト表示に使う。
+    var onExternalCaptureInterrupt: ((Bool) -> Void)?
+
     /// `startCapture` の確定結果を通知するフック（録画オン直後の justEnabled 判定用）。
     /// `@MainActor` 上で呼ばれる。`true` = 取り込み開始成功、`false` = 失敗（権限拒否など）。
     /// retryRecording 経由でのみ設定し、成功で一度使ったら呼び出し側で解除する想定。
@@ -217,6 +222,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
         FlashbackLog.lifecycle.info("\(reason, privacy: .public)。録画を停止し凍ったバッファを破棄（割り込み）。")
         interruptedBySystem = true                         // 復帰時に自動再開する目印
         teardownCapture(notify: true)                      // OFF 確定（FAB グレー）＋ セッション停止＋ ring 破棄
+        onExternalCaptureInterrupt?(true)                  // 中断トースト
     }
 
     /// 外部キャプチャ終了 / 可用性復帰時の自動再開。録画意思が残り・二重開始でなく・外部キャプチャが
@@ -226,6 +232,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
         interruptedBySystem = false
         FlashbackLog.lifecycle.info("\(reason, privacy: .public)。録画を自動再開。")
         startBuffering(seconds: desiredBufferSeconds)
+        onExternalCaptureInterrupt?(false)                 // 再開トースト
     }
 
     /// 画面が外部からキャプチャ（OS画面収録 / AirPlay / ミラーリング）されているか。

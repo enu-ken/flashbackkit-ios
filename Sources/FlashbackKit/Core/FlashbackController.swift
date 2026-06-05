@@ -88,6 +88,10 @@ final class FlashbackController {
             self?.floatingButtonTrigger?.setRecordingEnabled(active)
             #endif
         }
+        // 外部キャプチャ（画面収録/ミラーリング等）での中断・自動再開を、専用トーストで知らせる。
+        recorder.onExternalCaptureInterrupt = { [weak self] interrupted in
+            self?.presenter.showInfo(interrupted ? "画面収録のため録画を中断しました" : "録画を再開しました")
+        }
 
         // シェイクは即時に配線。FAB は動的 add/remove のため別管理。
         var detectors: [TriggerDetecting] = []
