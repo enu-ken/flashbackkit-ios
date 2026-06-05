@@ -113,7 +113,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
             // 呼んだ瞬間に "Block was expected to execute on queue [main-thread]" で trap する。
             // CMSampleBuffer は非 Sendable なので ingest 内で box 化して serial queue へ渡す。
             // ring は holder 経由で読む（保持秒数変更で差し替わっても・停止後 nil でも安全）。
-            guard error == nil else { return }
+            if let error { holder.noteError(error); return }   // DEBUG 計装: CC 奪取等でエラーが来るか観察
             holder.ingest(sampleBuffer, type: bufferType)
         }, completionHandler: { @Sendable error in
             // ハンドラには weak self だけを捕捉し（クロージャを box 化しない）、結果は
@@ -192,6 +192,11 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     var debugScreenIsCaptured: Bool { Self.screenIsCaptured() }
     /// DEBUG: このセッションでアプリ内録画自体が isCaptured を立てたか（probe 結果。nil=未判定）。
     var debugInAppMarksCaptured: Bool? { inAppMarksCaptured }
+    /// DEBUG: システム側 `RPScreenRecorder.isRecording`（アプリ内 `captureConfirmed` とは別物）。
+    /// CC 画面収録に奪われた時に false へ落ちるか実機で観察するための窓。
+    var debugSystemIsRecording: Bool { recorder.isRecording }
+    /// DEBUG: capture handler に来たエラー件数。
+    var debugCaptureErrorCount: Int { ringHolder.errorSnapshot().count }
     #endif
 
     // MARK: - 外部キャプチャ（OS画面収録/ミラーリング/通話）との競合
@@ -291,11 +296,18 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
         // 常に isCaptured=true なので門番が効かず、静止画面（ReplayKit は画面変化時しかフレームを供給
         // しない＝正常な無入力）を誤って割り込み扱いし、停止→自動再開を反復してしまう（FAB ちらつき）。
         // 即時パス側（screenCaptureStateChanged）と同じゲートを掛けて対称にする。
-        // TODO(PoC): inAppMarksCaptured==true の端末では本ウォッチドッグが無効化されるため、コント
-        // ロールセンター画面収録との競合は拾えない（通話/別アプリは可用性 delegate が拾う）。isCaptured
-        // 以外の判別手段が要るが現状 API が無く、誤爆ループを避ける方を優先する。
+        // ※ inAppMarksCaptured==true の端末（iPhone 15 Pro 等）はこの門番が効かないため、下の
+        //   「システム録画停止」経路で別途拾う。
         if let idle, idle > Self.stallThreshold, inAppMarksCaptured == false, Self.screenIsCaptured() {
             interruptForExternalCapture(reason: "外部キャプチャ中にフレーム供給停止を検知")
+        }
+        // アプリ内録画が isCaptured を立てる端末（iPhone 15 Pro 等）向けの検知。`isCaptured` ではCC重畳と
+        // 区別できないので、代わりに「フレーム途絶 AND システム側 `RPScreenRecorder.isRecording` が false」を
+        // 外部キャプチャ奪取とみなす。静止画面では isRecording は true のままなので誤爆しない（CC 奪取で
+        // false へ落ちる）。**実機（iPhone 15 Pro / iOS 26.5）で CC 画面収録の自動off＋復帰を確認済み。**
+        if inAppMarksCaptured == true, captureConfirmed, wantsRecording,
+           let idle, idle > Self.stallThreshold, !recorder.isRecording {
+            interruptForExternalCapture(reason: "システム録画停止＋フレーム供給停止を検知（外部キャプチャ奪取）")
         }
     }
 }
@@ -309,15 +321,30 @@ private final class RingHolder: @unchecked Sendable {
     /// 最後に**映像**サンプルを受け取った単調時刻（ns）。0 = まだ受けてない。
     /// OS録画等でフレーム供給が止まる割り込みを、ウォッチドッグで検知するのに使う。
     private var lastVideoNanos: UInt64 = 0
+    /// capture handler に来たエラーの件数と直近メッセージ（DEBUG 計装用）。CC 奪取等で
+    /// エラーが来るかを実機観察するために記録する。
+    private var errorCount = 0
+    private var lastErrorText: String?
 
     func set(_ newRing: SegmentRingWriter?) {
         lock.lock(); defer { lock.unlock() }
         ring = newRing
     }
 
-    /// 新規キャプチャ開始時にフレーム時計をリセットする（前回の古い時刻で誤検知しないように）。
+    /// 新規キャプチャ開始時にフレーム時計・エラー計装をリセットする（前回の値で誤検知しないように）。
     func resetClock() {
-        lock.lock(); lastVideoNanos = 0; lock.unlock()
+        lock.lock(); lastVideoNanos = 0; errorCount = 0; lastErrorText = nil; lock.unlock()
+    }
+
+    /// capture handler（背景スレッド）に来たエラーを記録する。
+    func noteError(_ error: Error) {
+        lock.lock(); errorCount += 1; lastErrorText = error.localizedDescription; lock.unlock()
+    }
+
+    /// 記録したエラーの件数と直近メッセージのスナップショット。
+    func errorSnapshot() -> (count: Int, last: String?) {
+        lock.lock(); defer { lock.unlock() }
+        return (errorCount, lastErrorText)
     }
 
     func ingest(_ sampleBuffer: CMSampleBuffer, type: RPSampleBufferType) {

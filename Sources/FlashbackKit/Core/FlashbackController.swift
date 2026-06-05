@@ -310,7 +310,8 @@ final class FlashbackController {
     func debugRecordingStatusLine() -> String {
         let age = recorder.debugFrameAge.map { String(format: "%.1f", $0) } ?? "—"
         let marks = recorder.debugInAppMarksCaptured.map { $0 ? "YES" : "no" } ?? "?"
-        return "rec=\(recorder.isRecording ? "ON" : "off")  age=\(age)s  isCaptured=\(recorder.debugScreenIsCaptured ? "YES" : "no")  marks=\(marks)"
+        let sysRec = recorder.debugSystemIsRecording ? "ON" : "off"
+        return "rec=\(recorder.isRecording ? "ON" : "off")  sysRec=\(sysRec)  age=\(age)s  isCaptured=\(recorder.debugScreenIsCaptured ? "YES" : "no")  marks=\(marks)  errs=\(recorder.debugCaptureErrorCount)"
     }
 
     /// DEBUG 専用: 進行中トーストを表示する（見た目確認用）。
