@@ -59,12 +59,15 @@ final class FlashbackPresenter {
         window.windowLevel = .alert + 1
         window.backgroundColor = .clear
 
-        let root = UIViewController()
+        // root view を「内容を OS キャプチャから除外するセキュア root」にする。FAB / トーストはこの配下に
+        // 載るため、スクショ/録画/ミラーリング/自前 ReplayKit のいずれにも写り込まない。
+        let root = SecureOverlayRootController()
         root.view.backgroundColor = .clear
         window.rootViewController = root
         window.isHidden = false
         self.window = window
 
+        root.view.layoutIfNeeded()          // コンテンツ追加前にセキュア canvas を解決しておく
         installStatusOverlay(in: root)
     }
 
@@ -382,6 +385,70 @@ private final class PassthroughWindow: UIWindow {
         }
         return hit
     }
+}
+
+/// OS のスクショ/録画/ミラーリング、および自前 ReplayKit から内容を除外するためのオーバーレイ root view。
+/// `isSecureTextEntry` の `UITextField` が内部に持つ描画 canvas は OS キャプチャから除外されるため、
+/// 追加された実コンテンツ（FAB / トースト）をその canvas へ載せ替える（**非公式・iOS バージョン依存**）。
+/// canvas が取れない場合は通常 view として機能する（除外なしのフォールバック）。
+/// canvas は `secureField` 配下なので、配下を hitTest 可能にするため `secureField` も interactive にし、
+/// 空き領域は `hitTest` で nil を返して従来どおりホストへパススルーさせる。
+@MainActor
+private final class SecureOverlayRootView: UIView {
+    private let secureField = UITextField()
+    /// 実コンテンツの載せ先（セキュア canvas）。取得できなければ nil（self に積むフォールバック）。
+    private var canvas: UIView?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+        secureField.isSecureTextEntry = true
+        secureField.isUserInteractionEnabled = true       // 配下（canvas/FAB）を hitTest 可能にする
+        secureField.backgroundColor = .clear
+        super.addSubview(secureField)                     // override を経由しない
+        secureField.frame = bounds
+        secureField.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        resolveCanvasIfNeeded()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// `secureField` 内部の描画 canvas を解決し、実コンテンツの載せ先にする（取れた一度きり）。
+    private func resolveCanvasIfNeeded() {
+        guard canvas == nil, let c = secureField.subviews.first else { return }
+        c.isUserInteractionEnabled = true
+        c.frame = bounds
+        c.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        c.subviews.forEach { $0.removeFromSuperview() }   // キャレット等の既存サブビューを除去
+        canvas = c
+        // resolve 前に self へ直接積まれていた実コンテンツを canvas へ移す（secureField は除く）。
+        for sub in subviews where sub !== secureField { c.addSubview(sub) }
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        resolveCanvasIfNeeded()                            // 初期化時に未生成でもレイアウト後に拾う
+    }
+
+    override func addSubview(_ view: UIView) {
+        if let canvas, view !== secureField {
+            canvas.addSubview(view)                        // 実コンテンツはセキュア canvas へ
+        } else {
+            super.addSubview(view)
+        }
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        // 実コンテンツ以外（自身 / secureField / canvas）に当たった＝空き領域 → nil でパススルー。
+        if hit == self || hit == secureField || hit == canvas { return nil }
+        return hit
+    }
+}
+
+/// `view` をセキュア root view にするための overlay 用 root コントローラ。
+@MainActor
+private final class SecureOverlayRootController: UIViewController {
+    override func loadView() { view = SecureOverlayRootView() }
 }
 
 /// トーストの内容。
