@@ -178,7 +178,12 @@ final class FlashbackController {
             guard let self else { return }
             self.recorder.onCaptureStarted = nil          // ワンショット
             FlashbackLog.lifecycle.info("retryRecording 結果: \(started ? "成功（justEnabled へ遷移）" : "失敗（おやすみ維持）", privacy: .public)")
-            if started { self.settingsStore?.recordingJustEnabled = true }
+            if started {
+                self.settingsStore?.recordingJustEnabled = true
+                // 開始のフィードバック。FAB 起こし時はトーストが見え、ReportView「録画をオンにする」
+                // 経由ではシート裏（justEnabled の表示が前面）に出るので二重感は出ない。
+                self.presenter.showInfo("録画を開始しました")
+            }
         }
         FlashbackLog.lifecycle.info("retryRecording 実行（再ダイアログ可否は iOS 版依存）")
         recorder.startBuffering(seconds: configuration.bufferSeconds)

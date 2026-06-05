@@ -280,6 +280,15 @@ private final class FloatingButtonView: UIView {
             popToggle()
             if on { emitPingRing(color: Self.action) }   // 録画アーム＝外向きの波紋ピング（オン時だけ）
         }
+        // オン演出中は待機の半透明（idleAlpha）を一時解除して不透明で見せ、演出後に待機へ戻す。
+        if on, !isTucked {
+            UIView.animate(withDuration: 0.16, delay: 0, options: [.allowUserInteraction]) {
+                self.alpha = self.activeAlpha
+            }
+            UIView.animate(withDuration: 0.35, delay: 0.6, options: [.allowUserInteraction]) {
+                self.alpha = self.idleAlpha
+            }
+        }
         if !isTucked {
             accessibilityHint = on ? "長押しでレポートを起動" : "タップで録画を開始"
         }
