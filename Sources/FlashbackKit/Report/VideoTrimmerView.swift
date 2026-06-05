@@ -140,13 +140,18 @@ struct VideoTrimmerView: View {
 
         player.replaceCurrentItem(with: AVPlayerItem(asset: asset))
         duration = seconds
-        // 初期値（未設定）なら、選択を「中間点〜終端」にする。直前の不具合は録画の終盤に
-        // 写りがちなので、取得したい終わり付近をすぐ触れるよう既定の始点を中間へ寄せる
-        // （最低選択長は確保）。再生ヘッド／プレビューも始点へ寄せ、キャプチャボタンも中央スタートに。
         if selection.lowerBound >= selection.upperBound {
+            // 初回（未設定）: 選択を「中間点〜終端」にする。直前の不具合は録画の終盤に写りがちなので、
+            // 取得したい終わり付近をすぐ触れるよう既定の始点を中間へ寄せる（最低選択長は確保）。
+            // 再生ヘッド／プレビューも始点へ寄せ、キャプチャボタンも中央スタートに。
             let start = max(0, min(seconds / 2, seconds - minimumDuration))
             selection = start...seconds
             seek(to: start)
+        } else {
+            // 再ロード（設定へ push して戻る等で .task が再実行）: 選択は維持。replaceCurrentItem で
+            // 0 に戻った再生位置を直前のヘッド位置（選択範囲内へクランプ）へ復帰させる。これをしないと
+            // periodic observer が playhead を 0 に同期し、カメラボタンだけ左端へ飛ぶ（選択は中央のまま）。
+            seek(to: min(max(playhead, selection.lowerBound), selection.upperBound))
         }
         // 実トラックから表示アスペクト比を求めてプレビュー枠を合わせる（黒帯を出さない）。
         if let track = try? await asset.loadTracks(withMediaType: .video).first,
