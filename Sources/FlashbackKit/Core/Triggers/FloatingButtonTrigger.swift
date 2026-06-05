@@ -120,8 +120,16 @@ private final class FloatingButtonView: UIView {
     private static let toastDelay: CFTimeInterval = 0.18
 
     /// 録画オン（オレンジ）/ オフ（グレー休止）。変更で見た目を更新する。
+    /// 実際に状態が変わり画面に載っている時だけ、タイムスライスが満ちる/畳む演出を再生する
+    /// （色クロスフェード＋くさび 0°⇄66°＋ポップ＋触覚）。それ以外（初期化・refresh）は即時スナップ。
     var recordingEnabled: Bool {
-        didSet { applyAppearance() }
+        didSet {
+            if recordingEnabled != oldValue, window != nil {
+                animateRecordingTransition(to: recordingEnabled)
+            } else {
+                applyAppearance()
+            }
+        }
     }
 
     private static let diameter: CGFloat = 56
@@ -218,17 +226,12 @@ private final class FloatingButtonView: UIView {
         ringLayer.path = UIBezierPath(arcCenter: center, radius: radius,
                                       startAngle: 0, endAngle: 2 * .pi, clockwise: true).cgPath
 
-        // くさび: 12 時から反時計回り 66°（左斜め上・巻き戻し方向）。点サンプリングで向きを確定。
-        let wedge = UIBezierPath()
-        wedge.move(to: center)
-        let steps = 48
-        for i in 0...steps {
-            let clock = -(66 * Double(i) / Double(steps)) * .pi / 180
-            wedge.addLine(to: CGPoint(x: center.x + radius * CGFloat(sin(clock)),
-                                      y: center.y - radius * CGFloat(cos(clock))))
-        }
-        wedge.close()
-        wedgeLayer.path = wedge.cgPath
+        // くさび（タイムスライス）。録画状態に応じた充填率で描く（オフ=0°＝畳んで非表示／オン=66°）。
+        // 状態遷移は setWedgeSweep(animated:) でアニメするので、ここは現状態へスナップのみ。
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        wedgeLayer.path = wedgePath(sweep: recordingEnabled ? 1 : 0)
+        CATransaction.commit()
 
         // 針: 中心→12時方向（r=18・リング内側 2 手前）。丸キャップ。
         let hand = UIBezierPath()
@@ -249,18 +252,118 @@ private final class FloatingButtonView: UIView {
                                           clockwise: false).cgPath
     }
 
-    /// 背景色・くさび色を**録画状態だけ**で決める（タックは色に影響しない）。
-    /// 色ルール「録画中＝オレンジ／停止中＝グレー」をユーザーに分かりやすく統一する。
-    /// タック中の見分けは形状（ハーフピル）と alpha が担う。
+    /// 背景色・くさびを**録画状態だけ**で決める（タックは色に影響しない）。アニメ無しの即時スナップ。
+    /// 色ルール「録画中＝オレンジ／停止中＝グレー」。停止中はタイムスライス（くさび）を畳んで非表示にし、
+    /// 「録っていない＝スライスが無い」を形でも示す。タック中の見分けは形状（ハーフピル）と alpha が担う。
     private func applyAppearance() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         backgroundColor = recordingEnabled ? Self.action : Self.slate
-        let wedgeColor = recordingEnabled
-            ? UIColor.white.withAlphaComponent(0.5)   // 録画中
-            : UIColor.white.withAlphaComponent(0.6)   // 停止中（休止）
-        wedgeLayer.fillColor = wedgeColor.cgColor
-        // 操作ヒントも録画状態へ連動（タック中の「タップで表示」は呼び元が後から上書きする）。
+        wedgeLayer.fillColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        wedgeLayer.path = wedgePath(sweep: recordingEnabled ? 1 : 0)
+        CATransaction.commit()
         if !isTucked {
             accessibilityHint = recordingEnabled ? "長押しでレポートを起動" : "タップで録画を開始"
+        }
+    }
+
+    /// 録画 on/off の遷移演出（案: タイムスライスが満ちる）。色クロスフェード＋くさび 0°⇄66° の
+    /// スイープ＋スプリングのポップ＋触覚（on=しっかり / off=やわらか）。
+    private func animateRecordingTransition(to on: Bool) {
+        UIImpactFeedbackGenerator(style: on ? .medium : .soft).impactOccurred()
+        wedgeLayer.fillColor = UIColor.white.withAlphaComponent(0.5).cgColor
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.allowUserInteraction, .curveEaseInOut]) {
+            self.backgroundColor = on ? Self.action : Self.slate
+        }
+        setWedgeSweep(on ? 1 : 0, animated: true)
+        if !UIAccessibility.isReduceMotionEnabled {
+            popToggle()
+            if on { emitPingRing(color: Self.action) }   // 録画アーム＝外向きの波紋ピング（オン時だけ）
+        }
+        if !isTucked {
+            accessibilityHint = on ? "長押しでレポートを起動" : "タップで録画を開始"
+        }
+    }
+
+    /// 録画オン時に、ボタン外周から波紋リングを一発広げてフェードアウトさせる（レーダーピング）。
+    /// ボタンの円形クリップに切られないよう、親ビューの **FAB 背後** に一時レイヤを置き、完了後に除去する。
+    private func emitPingRing(color: UIColor) {
+        guard let host = superview else { return }
+        let side = Self.diameter
+        let ring = CAShapeLayer()
+        ring.bounds = CGRect(x: 0, y: 0, width: side, height: side)
+        ring.position = center                         // 親座標での FAB 中心
+        ring.path = UIBezierPath(ovalIn: CGRect(x: 1, y: 1, width: side - 2, height: side - 2)).cgPath
+        ring.fillColor = UIColor.clear.cgColor
+        ring.strokeColor = color.withAlphaComponent(0.65).cgColor
+        ring.lineWidth = 2.5
+        ring.opacity = 0                               // 最終状態（アニメで 0.7→0）
+        host.layer.insertSublayer(ring, below: layer)  // FAB の背後から湧き出す
+
+        let scale = CABasicAnimation(keyPath: "transform.scale")
+        scale.fromValue = 1.0
+        scale.toValue = 2.3
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 0.7
+        fade.toValue = 0.0
+        let group = CAAnimationGroup()
+        group.animations = [scale, fade]
+        group.duration = 0.6
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { ring.removeFromSuperlayer() }
+        ring.add(group, forKey: "ping")
+        CATransaction.commit()
+    }
+
+    /// くさび（タイムスライス）の充填率（0=畳む / 1=66°満タン）を設定する。
+    /// `animated` 時は path を補間（満ちる=easeOut / 畳む=easeIn）。点数が同じなので滑らかに補間できる。
+    private func setWedgeSweep(_ sweep: CGFloat, animated: Bool) {
+        let to = wedgePath(sweep: sweep)
+        if animated {
+            let from = wedgeLayer.presentation()?.path ?? wedgeLayer.path
+            let anim = CABasicAnimation(keyPath: "path")
+            anim.fromValue = from
+            anim.toValue = to
+            anim.duration = 0.38
+            anim.timingFunction = CAMediaTimingFunction(name: sweep > 0 ? .easeOut : .easeIn)
+            wedgeLayer.path = to
+            wedgeLayer.add(anim, forKey: "wedgeSweep")
+        } else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            wedgeLayer.path = to
+            CATransaction.commit()
+        }
+    }
+
+    /// 12 時から反時計回りに `sweep × 66°` 充填したくさび。点数固定（補間用）・sweep=0 は退化＝不可視。
+    private func wedgePath(sweep: CGFloat) -> CGPath {
+        let center = CGPoint(x: bounds.midX, y: bounds.midY)
+        let radius = 20 * (Self.markDiameter / 64)
+        let maxDeg = 66.0 * Double(max(0, min(sweep, 1)))
+        let steps = 48
+        let path = UIBezierPath()
+        path.move(to: center)
+        for i in 0...steps {
+            let clock = -(maxDeg * Double(i) / Double(steps)) * .pi / 180
+            path.addLine(to: CGPoint(x: center.x + radius * CGFloat(sin(clock)),
+                                     y: center.y - radius * CGFloat(cos(clock))))
+        }
+        path.close()
+        return path.cgPath
+    }
+
+    /// トグル時の弾み（少し膨らんで戻る）。発火ポップ(1.25)とは別の控えめなスケール。
+    private func popToggle() {
+        UIView.animate(withDuration: 0.16, delay: 0, usingSpringWithDamping: 0.45, initialSpringVelocity: 0,
+                       options: [.allowUserInteraction]) {
+            self.transform = CGAffineTransform(scaleX: 1.12, y: 1.12)
+        } completion: { _ in
+            UIView.animate(withDuration: 0.34, delay: 0, usingSpringWithDamping: 0.55, initialSpringVelocity: 6,
+                           options: [.allowUserInteraction]) {
+                self.transform = .identity
+            }
         }
     }
 
@@ -502,13 +605,17 @@ private final class FloatingButtonView: UIView {
             lastRawCenter = CGPoint(x: dragStartCenter.x + t.x, y: dragStartCenter.y + t.y)
             center = dragClampedCenter(lastRawCenter, in: parent)
         case .ended, .cancelled:
-            // タックのまま上下移動して離した場合はその位置に留まる（タック＋高さを更新保存）。
+            let v = recognizer.velocity(in: parent)
+            // タックのまま上下移動して離した場合は、縦フリックの勢いで上下に滑らせてから留まる
+            //（x はタック位置のまま・y は慣性で移動して保存）。
             if isTucked {
-                savePosition(edgeIsTrailing: tuckedAtMaxX, y: center.y, tucked: true, in: parent)
+                let projectedY = clampY(center.y + projectedOffset(v.y), in: parent)
+                savePosition(edgeIsTrailing: tuckedAtMaxX, y: projectedY, tucked: true, in: parent)
+                spring(to: CGPoint(x: center.x, y: projectedY), velocity: v, damping: 0.8, alpha: idleAlpha)
                 setActive(false)
                 return
             }
-            finishDrag(in: parent, velocity: recognizer.velocity(in: parent).x)
+            finishDrag(in: parent, velocity: v)
             setActive(false)
         default:
             break
@@ -517,34 +624,50 @@ private final class FloatingButtonView: UIView {
 
     /// ドラッグ終了時、**離した座標**で判定する。端の定位置より内側で離せば吸着、
     /// 端寄り（しきい値より外）で離せばタック。強いフリックでもその端へタックする。
-    /// フリックの速度を spring の初速に渡して、勢いに連動した跳ね感を出す。
-    private func finishDrag(in parent: UIView, velocity: CGFloat) {
+    /// 端スナップ（左右）は x、滑走は y で扱う：縦フリックの勢いを慣性として y に乗せ、
+    /// 勢いぶん先の高さへ滑らせてから止める。spring の初速にもフリック速度を渡す。
+    private func finishDrag(in parent: UIView, velocity: CGPoint) {
         let leftRest = restMarginX(in: parent, maxEdge: false)
         let rightRest = restMarginX(in: parent, maxEdge: true)
         let flick: CGFloat = 1500   // pt/s。これ以上の勢いで弾いたら端へ投げてタック。
-        if center.x < leftRest - Self.tuckThreshold || velocity < -flick {
-            tuck(toMaxEdge: false, in: parent, velocity: velocity)
-        } else if center.x > rightRest + Self.tuckThreshold || velocity > flick {
-            tuck(toMaxEdge: true, in: parent, velocity: velocity)
+        let projectedY = clampY(center.y + projectedOffset(velocity.y), in: parent)
+        if center.x < leftRest - Self.tuckThreshold || velocity.x < -flick {
+            tuck(toMaxEdge: false, in: parent, velocity: velocity, projectedY: projectedY)
+        } else if center.x > rightRest + Self.tuckThreshold || velocity.x > flick {
+            tuck(toMaxEdge: true, in: parent, velocity: velocity, projectedY: projectedY)
         } else {
-            snapToNearestEdge(in: parent, velocity: velocity)
+            snapToNearestEdge(in: parent, velocity: velocity, projectedY: projectedY)
         }
     }
 
+    /// フリック速度（pt/s）から慣性で滑る追加距離（pt）。
+    /// **閾値未満は 0**＝ゆっくり離せば離した位置にそのまま置ける（自由配置を維持）。
+    /// 閾値を超えた“意図的なフリック分”だけを緩めに射影するので、勢いよく弾いた時だけ滑る。
+    /// `clampY` で画面内に丸めるので、強く弾けば端で止まる。
+    private func projectedOffset(_ velocity: CGFloat) -> CGFloat {
+        let threshold: CGFloat = 350        // pt/s。これ未満は慣性を効かせない（配置の微調整を残す）。
+        let magnitude = abs(velocity)
+        guard magnitude > threshold else { return 0 }
+        let rate: CGFloat = 0.99            // 0.998 より弱く＝滑りを抑える。
+        let offset = ((magnitude - threshold) / 1000) * rate / (1 - rate)
+        return velocity < 0 ? -offset : offset
+    }
+
     /// 画面端へスッと隠し、`peek` 幅だけ残す（YouTube ミニプレーヤー風）。
-    private func tuck(toMaxEdge: Bool, in parent: UIView, velocity: CGFloat = 0) {
+    private func tuck(toMaxEdge: Bool, in parent: UIView, velocity: CGPoint = .zero, projectedY: CGFloat? = nil) {
         let half = Self.diameter / 2
         let targetX = toMaxEdge
             ? parent.bounds.width + half - Self.peek
             : -half + Self.peek
+        let targetY = projectedY ?? center.y      // 縦フリックの勢いぶん滑らせた高さへ
         isTucked = true
         tuckedAtMaxX = toMaxEdge
-        savePosition(edgeIsTrailing: toMaxEdge, y: center.y, tucked: true, in: parent)
+        savePosition(edgeIsTrailing: toMaxEdge, y: targetY, tucked: true, in: parent)
         applyAppearance()                       // 色は録画状態のまま（タックは形状/alpha のみ）。
         accessibilityHint = "タップで表示"
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // 隠す側は跳ね返りが浅め（damping 高め）で「収まる」感じに。
-        spring(to: CGPoint(x: targetX, y: center.y), velocity: velocity, damping: 0.78, alpha: idleAlpha)
+        spring(to: CGPoint(x: targetX, y: targetY), velocity: velocity, damping: 0.78, alpha: idleAlpha)
     }
 
     /// タック状態から端のマージン位置へ引き出す。
@@ -556,22 +679,23 @@ private final class FloatingButtonView: UIView {
                                            y: center.y), in: parent)
         savePosition(edgeIsTrailing: tuckedAtMaxX, y: target.y, tucked: false, in: parent)
         // 引き出しは弾みを強めに（damping 低め）でポンッと出す。
-        spring(to: target, velocity: 0, damping: 0.55, alpha: activeAlpha) { [weak self] in
+        spring(to: target, damping: 0.55, alpha: activeAlpha) { [weak self] in
             self?.setActive(false)
         }
     }
 
     /// 中心座標へ spring（跳ね）アニメーションで移動する共通処理。
     /// - Parameters:
-    ///   - velocity: フリック速度（pt/s）。移動距離で正規化して spring 初速に渡す。
+    ///   - velocity: フリック速度ベクトル（pt/s）。2D の移動距離で正規化して spring 初速に渡す。
     ///   - damping: 0 に近いほどよく跳ね、1 に近いほど跳ねずに収まる。
     private func spring(to target: CGPoint,
-                        velocity: CGFloat = 0,
+                        velocity: CGPoint = .zero,
                         damping: CGFloat = 0.55,
                         alpha: CGFloat? = nil,
                         completion: (() -> Void)? = nil) {
-        let distance = abs(target.x - center.x)
-        let initialVelocity = distance > 1 ? min(abs(velocity) / distance, 12) : 0
+        let distance = max(hypot(target.x - center.x, target.y - center.y), 0.001)
+        let speed = hypot(velocity.x, velocity.y)
+        let initialVelocity = distance > 1 ? min(speed / distance, 12) : 0
         UIView.animate(withDuration: 0.55, delay: 0,
                        usingSpringWithDamping: damping,
                        initialSpringVelocity: initialVelocity,
@@ -649,15 +773,16 @@ private final class FloatingButtonView: UIView {
         return CGPoint(x: min(max(point.x, xMin), xMax), y: clampY(point.y, in: parent))
     }
 
-    /// 左右の近い端へ吸着させる（フリック速度に連動した跳ね感つき）。
-    private func snapToNearestEdge(in parent: UIView, velocity: CGFloat = 0) {
+    /// 左右の近い端へ吸着させる。横は端へスナップ、縦はフリックの勢いで滑走（慣性）。
+    private func snapToNearestEdge(in parent: UIView, velocity: CGPoint = .zero, projectedY: CGFloat? = nil) {
         let inset = parent.safeAreaInsets
         let half = Self.diameter / 2
         let minX = inset.left + Self.edgeMargin + half
         let maxX = parent.bounds.width - inset.right - Self.edgeMargin - half
         let targetX = (center.x - minX) < (maxX - center.x) ? minX : maxX
-        savePosition(edgeIsTrailing: targetX == maxX, y: center.y, tucked: false, in: parent)
-        spring(to: CGPoint(x: targetX, y: center.y), velocity: velocity, damping: 0.6)
+        let targetY = projectedY ?? center.y
+        savePosition(edgeIsTrailing: targetX == maxX, y: targetY, tucked: false, in: parent)
+        spring(to: CGPoint(x: targetX, y: targetY), velocity: velocity, damping: 0.6)
     }
 
     private func setActive(_ active: Bool) {
