@@ -48,10 +48,13 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// 画面録画が利用可能か（Simulator / 通話中 / 別アプリ録画中などは false）。
     /// 事前照会できる権限 API は無いため、設定画面の権限表示はこの可用性を用いる。
     ///
-    /// Simulator は ReplayKit 実録画が物理的に不可。**新しい Sim（iOS 18 系）では
-    /// `RPScreenRecorder.isAvailable` が `true` を返す**ため、可用性を `RPScreenRecorder`
-    /// 任せにすると ReportView が「録画不可」でなく「録画はオフです（CTA 付き）」を誤表示する。
-    /// よって Sim ではコンパイル時に false へ固定する。
+    /// Simulator では ReplayKit のアプリ内録画が**機能しない**（実測・iPhone 16 Sim / iOS 18 系）。
+    /// `isAvailable` は `true` を返し、`startCapture` も `error=nil` で「成功」を返すが、
+    /// **映像サンプルバッファが 1 枚も来ない**（`startRecording` 系も開始は成功するが停止が返らない）。
+    /// 物理的に不可なのではなく「API が成功を装うのにフレームを吐かない」＝信じると ring が空のまま
+    /// 空 clip を量産する。可用性を `RPScreenRecorder` 任せにすると ReportView が「録画不可」でなく
+    /// 「録画はオフです（CTA 付き）」を誤表示するため、Sim ではコンパイル時に false へ固定する。
+    /// （ホスト側で Sim 画面を録る `simctl io recordVideo` / QuickTime とは別レイヤなので混同しない。）
     var isAvailable: Bool {
         #if targetEnvironment(simulator)
         false
