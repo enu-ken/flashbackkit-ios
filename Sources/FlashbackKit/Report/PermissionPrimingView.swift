@@ -7,7 +7,8 @@ import SwiftUI
 /// アプリ表示名のみ）。そこで OS 確認を出す“前”に本シートで意味を橋渡しし、理解と許可率を上げる。
 ///
 /// 提示は `.sheet` + `.presentationDetents([.medium])`（おやすみ ReportView の上）。
-/// 色ルール: まだ録画オフなのでヒーローマークは **Slate 中立**、唯一のオレンジは操作可能な CTA。
+/// 色ルール: ヒーローマークは**ブランドロゴ配色**（リング/針=ラベル色・くさび=オレンジ）。
+/// 塗りつぶしの CTA も同じオレンジで、操作の主役を視線で結ぶ。
 /// コピーは正本 priming.jsx の A 案（中立・説明型）。「不具合/バグ」表現は使わない。
 struct PermissionPrimingView: View {
     /// 「許可へ進む」: 呼び出し側で hasPrimed を立て、シートを閉じて録画再試行（OS 確認）へ繋ぐ。
@@ -19,8 +20,9 @@ struct PermissionPrimingView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 8)
 
-            // ヒーロー: 録画オン（オレンジ）の Time Slice マーク。これからオンにする状態を先取りで示す。
-            TimeSliceMark.recordingOnSurface()
+            // ヒーロー: ブランドロゴ配色の Time Slice マーク。リング/針はラベル色（ライト=黒/ダーク=白）で
+            // くさびのオレンジを全周囲み、地に依らず輪郭がはっきり立つ。くさび＝オレンジで「時を切り取る」を示す。
+            TimeSliceMark.logo()
                 .frame(width: 46, height: 46)
                 .padding(.bottom, 16)
 

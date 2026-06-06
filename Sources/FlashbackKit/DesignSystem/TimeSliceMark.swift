@@ -61,12 +61,14 @@ struct TimeSliceMark: View {
             let handLength = 18 * k               // 中心→12時の針（r=18・リング内側 2 手前）
 
             ZStack {
-                Circle()
-                    .stroke(ringColor, lineWidth: strokeWidth)
-                    .frame(width: ringDiameter, height: ringDiameter)
-
+                // くさび（最背面）。リングを上に重ねることで、リングがくさびの全周を囲う輪郭になる。
                 TimeSliceWedge(start: wedgeStart, sweep: wedgeSweep)
                     .fill(wedgeColor)
+                    .frame(width: ringDiameter, height: ringDiameter)
+
+                // リング（くさびの上）。くさびと別色なら全周の輪郭線として効く。
+                Circle()
+                    .stroke(ringColor, lineWidth: strokeWidth)
                     .frame(width: ringDiameter, height: ringDiameter)
 
                 // 針（12時方向）。リング/ハブと同色・丸キャップ。中心から真上へ伸ばす。
