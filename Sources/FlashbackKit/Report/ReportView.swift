@@ -88,12 +88,10 @@ struct ReportView: View {
                 .scrollDismissesKeyboard(.interactively)
                 // タイトルにフォーカスが当たったら、下にある環境情報をキーボードの上へスクロールで見せる
                 // （位置は変えず、端末情報を見ながらタイトルへ書き写せるように）。下端 inset が確定する
-                // キーボード出現後（didShow）に合わせて確実に上へ出す。フォーカス時にも即時で寄せておく。
-                .onChange(of: titleFocused) { focused in
-                    if focused { scrollDeviceInfoAboveKeyboard(proxy) }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
-                    if titleFocused { scrollDeviceInfoAboveKeyboard(proxy) }
+                // キーボードが動き始める willShow に同期してスクロール（didShow だと出切った後に
+                // 別モーションでガクッと動いてびっくりするため）。キーボードと同じ時間で一緒に滑り上げる。
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { note in
+                    if titleFocused { scrollDeviceInfoAboveKeyboard(proxy, note: note) }
                 }
             }
             .background(FlashbackColor.background)
@@ -308,8 +306,25 @@ struct ReportView: View {
     /// 環境情報セクションをキーボードの上端へスクロールして見せる（タイトル位置は変えない）。
     /// タイトル＋環境情報はキーボード上の領域に十分収まるため、`.bottom` 寄せでも
     /// タイトルは上に残る＝端末情報を見ながら入力できる。
-    private func scrollDeviceInfoAboveKeyboard(_ proxy: ScrollViewProxy) {
-        withAnimation(.easeOut(duration: 0.25)) {
+    /// **キーボードと同じアニメ時間＋カーブで動かす**ことで、競り上がりと一体になって滑らかに上がる
+    /// （時間だけ合わせても `.easeOut` はキーボードのカーブより出だしが速く、先走って違和感が出る）。
+    private func scrollDeviceInfoAboveKeyboard(_ proxy: ScrollViewProxy, note: Notification) {
+        let info = note.userInfo
+        let kbDuration = (info?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double) ?? 0.25
+        // キーボードより気持ち速く（0.7倍）してキビキビ感を出す（カーブは合わせたまま）。
+        let duration = max(kbDuration * 0.7, 0.12)
+        let curveRaw = (info?[UIResponder.keyboardAnimationCurveUserInfoKey] as? Int) ?? 7
+        let animation: Animation
+        switch curveRaw {
+        case 1: animation = .easeIn(duration: duration)
+        case 2: animation = .easeOut(duration: duration)
+        case 3: animation = .linear(duration: duration)
+        default:
+            // 0=easeInOut / 7=キーボード既定カーブ。出だしが緩やかな easeInOut 系に寄せて
+            // 競り上がりと速度感を合わせる。
+            animation = .easeInOut(duration: duration)
+        }
+        withAnimation(animation) {
             proxy.scrollTo(Self.deviceInfoAnchor, anchor: .bottom)
         }
     }
