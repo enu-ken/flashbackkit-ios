@@ -361,7 +361,7 @@ private struct DeviceInfoSection: View {
     let device: DeviceInfo
     /// タイトルへ環境情報を挿入/除去するためのバインディング。nil（クリップ無し）の時は ＋/− を出さない。
     var insertionTitle: Binding<String>? = nil
-    /// タイトルへ追加済みのフィールド（挿入順を保持し、その順で「（A/B）」を組む）。
+    /// タイトルへ追加済みのフィールド（挿入順を保持し、その順で「｜A｜B｜」を組む）。
     @State private var added: [Field] = []
 
     /// 表示する3項目。
@@ -409,7 +409,7 @@ private struct DeviceInfoSection: View {
         .foregroundStyle(FlashbackColor.secondaryLabel)
     }
 
-    /// ＋（追加）/ −（除去）トグル。押すとタイトル末尾の「（…）」を組み直す。
+    /// ＋（追加）/ −（除去）トグル。押すとタイトル末尾の「｜…｜」を組み直す。
     private func insertButton(_ field: Field, title: Binding<String>) -> some View {
         let isAdded = added.contains(field)
         return Button {
@@ -425,8 +425,8 @@ private struct DeviceInfoSection: View {
         .accessibilityLabel(isAdded ? "タイトルから\(value(field))を除去" : "タイトルへ\(value(field))を追加")
     }
 
-    /// タイトル末尾の「（…）」を一旦剥がして base を復元し、added をトグルして組み直す。
-    /// 末尾が想定の「（…）」でない（手編集された）場合は base をそのままにして末尾へ付け直す。
+    /// タイトル末尾の「｜…｜」を一旦剥がして base を復元し、added をトグルして組み直す。
+    /// 末尾が想定の「｜…｜」でない（手編集された）場合は base をそのままにして末尾へ付け直す。
     private func toggle(_ field: Field, title: Binding<String>) {
         let oldSuffix = suffix(for: added)
         var base = title.wrappedValue
@@ -442,11 +442,11 @@ private struct DeviceInfoSection: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    /// 追加済みフィールドから「（ A / B / … ）」を作る（空なら空文字）。
-    /// 区切りの前後＋括弧の内側にも余白を1つずつ入れる。
+    /// 追加済みフィールドから「｜A｜B｜…｜」を作る（空なら空文字）。
+    /// 両端の括弧は付けず、全ての区切り位置（先頭・各項目間・末尾）に「｜」を置く。
     private func suffix(for fields: [Field]) -> String {
         guard !fields.isEmpty else { return "" }
-        return "（ " + fields.map(value).joined(separator: " / ") + " ）"
+        return "｜" + fields.map(value).joined(separator: "｜") + "｜"
     }
 }
 
