@@ -59,6 +59,12 @@ final class FlashbackController {
         if promptOnLaunch {
             recorder.startBuffering(seconds: bufferSeconds)
         }
+        // 起動ボタン/トーストを OS キャプチャから除外するか。既定 true（写さない）。設定トグルの
+        // 永続値があればそれを採用。install 前に Presenter へ渡すと finishInstall（保留→遅延設置含む）で反映される。
+        let excludesButtonFromCapture = (UserDefaults.standard.object(forKey: FlashbackSettingsStore.excludesButtonFromCaptureKey) as? Bool)
+            ?? true
+        presenter.setExcludesContentFromCapture(excludesButtonFromCapture)
+
         // overlay 設置がシーン未接続で保留された場合、シーン接続後に triggerHost 依存の FAB を
         // 改めて載せる（SceneDelegate アプリで didFinishLaunching から start() を呼んでも UI が出る）。
         presenter.onDeferredInstall = { [weak self] in self?.handleDeferredOverlayInstall() }
@@ -68,13 +74,15 @@ final class FlashbackController {
             floatingButtonVisible: configuration.triggers.contains(.floatingButton),
             retentionSeconds: Int(bufferSeconds),
             promptOnLaunch: promptOnLaunch,
+            excludesButtonFromCapture: excludesButtonFromCapture,
             isRecordingActive: recorder.isRecording,
             isRecordingAvailable: { [weak self] in self?.recorder.isAvailable ?? false },
             onFloatingButtonVisibleChanged: { [weak self] in self?.setFloatingButton($0) },
             onRetentionChanged: { [weak self] in self?.setRetention($0) },
             onRetryRecording: { [weak self] in self?.retryRecording() },
             onStopRecording: { [weak self] in self?.recorder.stopBuffering() },
-            onPromptOnLaunchChanged: { [weak self] in self?.setPromptOnLaunch($0) }
+            onPromptOnLaunchChanged: { [weak self] in self?.setPromptOnLaunch($0) },
+            onExcludesButtonFromCaptureChanged: { [weak self] in self?.presenter.setExcludesContentFromCapture($0) }
         )
         // 録画の確定状態（許可後だけ true）を設定ストアへ常駐反映。UI が自動更新される。
         recorder.onRecordingStateChanged = { [weak self] active in
@@ -271,13 +279,15 @@ final class FlashbackController {
             floatingButtonVisible: settingsStore?.floatingButtonVisible ?? true,
             retentionSeconds: settingsStore?.retentionSeconds ?? 20,
             promptOnLaunch: false,
+            excludesButtonFromCapture: settingsStore?.excludesButtonFromCapture ?? true,
             isRecordingActive: false,
             isRecordingAvailable: { false },
             onFloatingButtonVisibleChanged: { _ in },
             onRetentionChanged: { _ in },
             onRetryRecording: {},
             onStopRecording: {},
-            onPromptOnLaunchChanged: { _ in }
+            onPromptOnLaunchChanged: { _ in },
+            onExcludesButtonFromCaptureChanged: { _ in }
         )
         presenter.presentReport(clipURL: nil, onShare: { _, _ in nil }, settings: stub)
     }

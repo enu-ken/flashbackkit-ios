@@ -37,6 +37,11 @@ final class FlashbackPresenter {
     /// シーン未接続で install() を保留し、シーン接続/活性化を待っている間だけ生きる観測子。
     private var sceneObserver: SceneConnectionObserver?
 
+    /// 実コンテンツ（FAB / トースト）を OS キャプチャ（スクショ/録画/ミラーリング/自前 ReplayKit）から
+    /// 除外するか。既定 true（写さない）。install 前に設定されても保持し、`finishInstall` で root へ適用する。
+    /// 設定トグル「スクショ・録画に写す」がオフ＝true、オン＝false。
+    private(set) var excludesContentFromCapture = true
+
     /// overlay window を前面シーンに設置する。トリガ用の UI（ボタン / ジェスチャ）は
     /// `triggerHost` を介して各 detector が載せる。
     ///
@@ -68,7 +73,15 @@ final class FlashbackPresenter {
         self.window = window
 
         root.view.layoutIfNeeded()          // コンテンツ追加前にセキュア canvas を解決しておく
+        (root.view as? SecureOverlayRootView)?.excludesFromCapture = excludesContentFromCapture
         installStatusOverlay(in: root)
+    }
+
+    /// 実コンテンツ（FAB / トースト）を OS キャプチャから除外するかを実行時に切り替える（設定トグル）。
+    /// `false` で意図的にスクショ/録画へ写す。install 前でも値を保持し、設置時に反映する。
+    func setExcludesContentFromCapture(_ exclude: Bool) {
+        excludesContentFromCapture = exclude
+        (window?.rootViewController?.view as? SecureOverlayRootView)?.excludesFromCapture = exclude
     }
 
     /// アクティブシーン未接続のため設置を保留し、シーン接続/活性化通知を待つ。
@@ -396,23 +409,38 @@ private final class PassthroughWindow: UIWindow {
 @MainActor
 private final class SecureOverlayRootView: UIView {
     private let secureField = UITextField()
-    /// 実コンテンツの載せ先（セキュア canvas）。取得できなければ nil（self に積むフォールバック）。
+    /// 実コンテンツ（FAB / トースト）の常設コンテナ。これごと「除外 canvas」と「通常 view」の間で
+    /// 載せ替えることで、OS キャプチャへの写り込みを実行時に切り替える（子の状態は保たれる）。
+    private let contentHost = UIView()
+    /// `secureField` 内部の描画 canvas（取得できなければ nil＝除外不可のフォールバック）。
     private var canvas: UIView?
+
+    /// 実コンテンツを OS キャプチャから除外するか。`true`（既定）＝除外 canvas に載せる／
+    /// `false`＝通常 view に載せて意図的に写す。canvas 未取得時は除外できず通常 view に載る。
+    var excludesFromCapture: Bool = true {
+        didSet { guard excludesFromCapture != oldValue else { return }; applyContentPlacement() }
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = .clear
         secureField.isSecureTextEntry = true
-        secureField.isUserInteractionEnabled = true       // 配下（canvas/FAB）を hitTest 可能にする
+        secureField.isUserInteractionEnabled = true       // 配下（canvas/contentHost）を hitTest 可能にする
         secureField.backgroundColor = .clear
         super.addSubview(secureField)                     // override を経由しない
         secureField.frame = bounds
         secureField.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
+        contentHost.backgroundColor = .clear
+        contentHost.frame = bounds
+        contentHost.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+
         resolveCanvasIfNeeded()
+        applyContentPlacement()
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    /// `secureField` 内部の描画 canvas を解決し、実コンテンツの載せ先にする（取れた一度きり）。
+    /// `secureField` 内部の描画 canvas を解決する（取れた一度きり）。
     private func resolveCanvasIfNeeded() {
         guard canvas == nil, let c = secureField.subviews.first else { return }
         c.isUserInteractionEnabled = true
@@ -420,8 +448,16 @@ private final class SecureOverlayRootView: UIView {
         c.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         c.subviews.forEach { $0.removeFromSuperview() }   // キャレット等の既存サブビューを除去
         canvas = c
-        // resolve 前に self へ直接積まれていた実コンテンツを canvas へ移す（secureField は除く）。
-        for sub in subviews where sub !== secureField { c.addSubview(sub) }
+        applyContentPlacement()                            // canvas が取れたので望みの配置へ
+    }
+
+    /// `contentHost` を除外設定に応じて canvas（除外）／ self（写す）へ載せ替える。
+    private func applyContentPlacement() {
+        if excludesFromCapture, let canvas {
+            canvas.addSubview(contentHost)                 // 除外 canvas 配下＝OS キャプチャから除外
+        } else {
+            super.addSubview(contentHost)                  // 通常 view 配下＝最前面で写る
+        }
     }
 
     override func layoutSubviews() {
@@ -430,17 +466,17 @@ private final class SecureOverlayRootView: UIView {
     }
 
     override func addSubview(_ view: UIView) {
-        if let canvas, view !== secureField {
-            canvas.addSubview(view)                        // 実コンテンツはセキュア canvas へ
-        } else {
+        if view === secureField || view === contentHost {
             super.addSubview(view)
+        } else {
+            contentHost.addSubview(view)                   // 実コンテンツは常設コンテナへ
         }
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let hit = super.hitTest(point, with: event)
-        // 実コンテンツ以外（自身 / secureField / canvas）に当たった＝空き領域 → nil でパススルー。
-        if hit == self || hit == secureField || hit == canvas { return nil }
+        // 実コンテンツ以外（自身 / secureField / canvas / contentHost）に当たった＝空き領域 → nil でパススルー。
+        if hit == self || hit == secureField || hit == canvas || hit == contentHost { return nil }
         return hit
     }
 }

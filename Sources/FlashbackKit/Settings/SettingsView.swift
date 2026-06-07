@@ -28,6 +28,13 @@ struct SettingsView: View {
             // トグルは緑に固定（view の青 tint に流されないよう明示）。
             Toggle("画面上に起動ボタンを表示", isOn: $store.floatingButtonVisible)
                 .tint(FlashbackColor.success)
+            // ラベルに主語（起動ボタン）を入れて自己説明的にし、フッター補足は不要に。
+            // 値はストアの除外フラグの反転（オン＝写す＝除外しない）。既定オフ＝写さない。
+            Toggle("起動ボタンをスクリーンショット・録画に写す", isOn: Binding(
+                get: { !store.excludesButtonFromCapture },
+                set: { store.excludesButtonFromCapture = !$0 }
+            ))
+            .tint(FlashbackColor.success)
         } header: {
             Text("表示")
         } footer: {

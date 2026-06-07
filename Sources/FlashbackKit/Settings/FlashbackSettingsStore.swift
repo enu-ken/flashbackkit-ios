@@ -44,6 +44,16 @@ final class FlashbackSettingsStore: ObservableObject {
         }
     }
 
+    /// 起動ボタン（とトースト）を OS のスクショ/録画から除外するか。既定 true（写さない＝プライバシー優先）。
+    /// 設定トグル「スクリーンショット・録画に写す」はこの値の反転（オン＝写す＝false）。
+    /// 変更は UserDefaults へ永続化し、Controller 側で overlay の除外を即時切替する。
+    @Published var excludesButtonFromCapture: Bool {
+        didSet {
+            UserDefaults.standard.set(excludesButtonFromCapture, forKey: Self.excludesButtonFromCaptureKey)
+            onExcludesButtonFromCaptureChanged(excludesButtonFromCapture)
+        }
+    }
+
     /// 画面収録のプライミング（事前説明）を既に一度見せたか（端末1回）。
     /// `true` 以降は「録画をオンにする」でプライミングを挟まず直接 OS 確認（再試行）へ。
     /// SDK 副作用を持たない単純フラグなので UserDefaults を直接読み書きする。
@@ -68,28 +78,33 @@ final class FlashbackSettingsStore: ObservableObject {
     static let retentionSecondsKey = "FlashbackKit.retentionSeconds"
     static let hasPrimedKey = "FlashbackKit.hasPrimedScreenRecording"
     static let hasSeenShakeHintKey = "FlashbackKit.hasSeenShakeHint"
+    static let excludesButtonFromCaptureKey = "FlashbackKit.excludesButtonFromCapture"
 
     private let onFloatingButtonVisibleChanged: (Bool) -> Void
     private let onRetentionChanged: (Int) -> Void
     private let onRetryRecording: () -> Void
     private let onStopRecording: () -> Void
     private let onPromptOnLaunchChanged: (Bool) -> Void
+    private let onExcludesButtonFromCaptureChanged: (Bool) -> Void
 
     init(
         floatingButtonVisible: Bool,
         retentionSeconds: Int,
         promptOnLaunch: Bool,
+        excludesButtonFromCapture: Bool,
         isRecordingActive: Bool,
         isRecordingAvailable: @escaping () -> Bool,
         onFloatingButtonVisibleChanged: @escaping (Bool) -> Void,
         onRetentionChanged: @escaping (Int) -> Void,
         onRetryRecording: @escaping () -> Void,
         onStopRecording: @escaping () -> Void,
-        onPromptOnLaunchChanged: @escaping (Bool) -> Void
+        onPromptOnLaunchChanged: @escaping (Bool) -> Void,
+        onExcludesButtonFromCaptureChanged: @escaping (Bool) -> Void
     ) {
         self.floatingButtonVisible = floatingButtonVisible
         self.retentionSeconds = retentionSeconds
         self.promptOnLaunch = promptOnLaunch            // init 代入では didSet は走らない（永続/副作用は起きない）
+        self.excludesButtonFromCapture = excludesButtonFromCapture
         self.isRecordingActive = isRecordingActive
         self.isRecordingAvailable = isRecordingAvailable
         self.onFloatingButtonVisibleChanged = onFloatingButtonVisibleChanged
@@ -97,6 +112,7 @@ final class FlashbackSettingsStore: ObservableObject {
         self.onRetryRecording = onRetryRecording
         self.onStopRecording = onStopRecording
         self.onPromptOnLaunchChanged = onPromptOnLaunchChanged
+        self.onExcludesButtonFromCaptureChanged = onExcludesButtonFromCaptureChanged
     }
 
     /// 録画（`startCapture`）を再試行する。拒否後の後付け許可 / おやすみ状態の「録画をオンにする」用。
