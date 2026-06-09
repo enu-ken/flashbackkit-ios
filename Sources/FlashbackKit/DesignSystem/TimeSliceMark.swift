@@ -40,7 +40,7 @@ struct TimeSliceWedge: Shape {
 /// The Time Slice mark (ring + wedge + hand + hub).
 ///
 /// Each element takes its own color so that swapping colors and opacity alone covers the
-/// FAB's four states (recording / held / edge-tucked / dormant) and the logo. Dimensions
+/// FAB's four states (recording / long-pressing / edge-tucked / dormant) and the logo. Dimensions
 /// are based on viewBox 64 and scaled uniformly into the given frame (ring radius 20,
 /// stroke 3.2, hub radius 2.6, hand pointing to 12 o'clock at r=18). The hand (clock hand
 /// pointing to 12) shares the ring/hub color.

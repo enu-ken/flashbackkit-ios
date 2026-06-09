@@ -1,5 +1,8 @@
 import Foundation
 
+/// Options controlling FlashbackKit's behavior, passed to `Flashback.start(configuration:)`.
+///
+/// All fields have sensible defaults, so `FlashbackConfiguration()` is a valid starting point.
 public struct FlashbackConfiguration: Sendable {
     /// Seconds of recent footage held in the ring buffer. Default 20 (matches the settings
     /// screen's 10/20/30/60 options).
@@ -24,8 +27,9 @@ public struct FlashbackConfiguration: Sendable {
     /// on first run, when no persisted value exists).
     public var promptOnLaunch: Bool
 
-    /// Whether to run on the Simulator. **Default false**: real ReplayKit recording is
-    /// physically impossible on the Simulator, so `Flashback.start()` does nothing (no FAB,
+    /// Whether to run on the Simulator. **Default false**: ReplayKit in-app capture doesn't
+    /// actually work on the Simulator (it reports success but emits no frames), so
+    /// `Flashback.start()` does nothing there (no FAB,
     /// triggers, or overlay). This avoids an unusable FAB lingering or onboarding running
     /// when a developer is building a different app on the Simulator or spinning up many
     /// new simulators. Set true only to inspect the SDK's own UI on the Simulator (the
@@ -33,6 +37,8 @@ public struct FlashbackConfiguration: Sendable {
     /// under `targetEnvironment(simulator)`).
     public var runsOnSimulator: Bool
 
+    /// Creates a configuration. Every parameter has a default, so call sites can override
+    /// only what they need (e.g. `FlashbackConfiguration(triggers: [.shake])`).
     public init(
         bufferSeconds: TimeInterval = 20,
         isEnabled: Bool = true,

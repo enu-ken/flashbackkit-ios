@@ -16,12 +16,14 @@ public enum Flashback {
     /// connection and installs the overlay window automatically, so it works regardless of
     /// call timing.
     ///
-    /// - Parameter onReport: Callback handing the finished `FlashbackReport`
-    ///   (title, device info, clip URL) to the host after recording, trimming, and sharing —
-    ///   the sole extension point. Host-specific work such as AI summarization, Slack
-    ///   delivery, or sending to your own backend goes here (the SDK's job ends at delivering
-    ///   the report). Called on the MainActor.
-    ///   Note: `report.clipURL` is a temporary file; copy or upload it here if you need to keep it.
+    /// - Parameters:
+    ///   - configuration: Behavior options (buffer seconds, triggers, etc.). Defaults to `.init()`.
+    ///   - onReport: Callback handing the finished `FlashbackReport`
+    ///     (title, device info, clip URL) to the host after recording, trimming, and sharing —
+    ///     the sole extension point. Host-specific work such as AI summarization, Slack
+    ///     delivery, or sending to your own backend goes here (the SDK's job ends at delivering
+    ///     the report). Called on the MainActor.
+    ///     Note: `report.clipURL` is a temporary file; copy or upload it here if you need to keep it.
     @MainActor
     public static func start(
         configuration: FlashbackConfiguration = .init(),
@@ -30,7 +32,9 @@ public enum Flashback {
         FlashbackController.shared.start(configuration: configuration, onReport: onReport)
     }
 
-    /// Stop recording and listeners.
+    /// Stop FlashbackKit.
+    /// Stops buffer recording, removes all triggers, and tears down the overlay window —
+    /// the counterpart to `start()`. Safe to call even if `start()` wasn't called.
     @MainActor
     public static func stop() {
         FlashbackController.shared.stop()

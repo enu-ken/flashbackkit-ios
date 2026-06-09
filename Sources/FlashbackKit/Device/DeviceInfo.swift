@@ -4,7 +4,7 @@ import UIKit
 #endif
 
 /// Device and app snapshot attached to a report.
-public struct DeviceInfo: Sendable {
+public struct DeviceInfo: Sendable, Codable, Equatable, Hashable {
     /// Generic model name (`UIDevice.model`; e.g. "iPhone" / "iPad").
     public let model: String
     /// Hardware model identifier (e.g. `iPhone16,1`), uniquely identifying the model.
@@ -12,10 +12,15 @@ public struct DeviceInfo: Sendable {
     public let modelIdentifier: String
     /// Marketing name (e.g. "iPhone 15 Pro"). Equals the identifier for unknown models.
     public let modelName: String
+    /// OS name (`UIDevice.systemName`; e.g. "iOS").
     public let systemName: String
+    /// OS version (`UIDevice.systemVersion`; e.g. "26.5").
     public let systemVersion: String
+    /// App marketing version (`CFBundleShortVersionString`; e.g. "1.0").
     public let appVersion: String
+    /// App build number (`CFBundleVersion`; e.g. "1").
     public let buildNumber: String
+    /// Current locale identifier (`Locale.current.identifier`; e.g. "ja_JP").
     public let locale: String
 
     /// Model string for report display, e.g. `iPhone 15 Pro (iPhone16,1)`.

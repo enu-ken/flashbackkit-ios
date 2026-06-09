@@ -20,11 +20,11 @@ import UIKit
 /// - Translucent and unobtrusive at rest, opaque only while touched.
 /// - Initial corner is selectable via `FloatingButtonCorner`.
 ///
-/// Appearance (README: orange = recording, gray = not recording):
+/// Appearance (orange = recording, gray = not recording):
 /// - Recording: orange circle, white ring, white@0.5 wedge.
 /// - Long-pressing: the above plus a progress ring.
-/// - Tucked at edge: gray, orange@1.0 wedge (recording continues).
-/// - Idle (recording off): gray, white@0.6 wedge.
+/// - Tucked at edge: gray half-pill showing a direction chevron (recording state unchanged).
+/// - Idle (recording off): gray, wedge folded away (no slice).
 @MainActor
 final class FloatingButtonTrigger: TriggerDetecting {
     var onTrigger: (() -> Void)?
