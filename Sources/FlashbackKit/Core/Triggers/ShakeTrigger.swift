@@ -81,7 +81,7 @@ final class ShakeEvaluator: @unchecked Sendable {
     private var lastFireAt: TimeInterval = -.greatestFiniteMagnitude
 
     init(
-        peakThreshold: Double = 2.3,
+        peakThreshold: Double = 1.9,
         rearmThreshold: Double = 1.3,
         window: TimeInterval = 1.0,
         cooldown: TimeInterval = 1.5,

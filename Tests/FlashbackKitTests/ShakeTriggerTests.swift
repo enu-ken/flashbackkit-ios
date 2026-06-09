@@ -6,7 +6,7 @@ import XCTest
 /// CoreMotion 実機センサに依存せず、加速度サンプル列を直接与えてテストできる。
 final class ShakeTriggerTests: XCTestCase {
 
-    /// 既定パラメータ（peak=2.3g, rearm=1.3g, window=1.0s, cooldown=1.5s, peaks=2）。
+    /// 既定パラメータ（peak=1.9g, rearm=1.3g, window=1.0s, cooldown=1.5s, peaks=2）。
     private func makeEvaluator() -> ShakeEvaluator { ShakeEvaluator() }
 
     /// 軸方向 1 つに大きさ `g` を与えるサンプル（合成加速度 = |g|）。
