@@ -19,6 +19,22 @@ final class FlashbackPresenter {
     /// title input below peeks through.
     static let halfDetentID = UISheetPresentationController.Detent.Identifier("flashbackHalf")
 
+    /// Minimum point height for the half detent, used as a floor under the 0.58 ratio.
+    ///
+    /// The half detent is sized as a fraction (0.58) of the available height. On tall phones
+    /// (e.g. iPhone 16, ~852pt screen → ~483pt) that fraction is enough to show the whole clip
+    /// content: the preview, the filmstrip at full height, the capture (camera) button just
+    /// below it, and the title section peeking through underneath. But on short phones (iPhone SE,
+    /// 667pt screen → maximumDetentValue ≈ 647 → 0.58 ≈ 375pt) the same fraction collapses the
+    /// sheet so much that the filmstrip is clipped at the bottom edge, the capture button is off
+    /// screen entirely, and the title is far out of view — breaking the design intent.
+    ///
+    /// To fix that, the resolved height takes `max(0.58 × max, floor)` (clamped to `max`). The
+    /// floor only ever raises short phones up to a usable height; on tall phones the 0.58 fraction
+    /// already exceeds the floor, so they are unchanged. The value is set to iPhone 16's current
+    /// 0.58 height so that anything at or below it leaves iPhone 16 (and taller) untouched.
+    static let halfDetentFloor: CGFloat = 483
+
     private let model = OverlayModel()
     private var window: UIWindow?
     private weak var reportHost: UIViewController?
@@ -173,7 +189,10 @@ final class FlashbackPresenter {
             // taller custom detent lets it peek through (and also lifts the bottom capture
             // button clear of the bottom system-gesture band).
             let halfDetent = UISheetPresentationController.Detent.custom(identifier: Self.halfDetentID) { context in
-                context.maximumDetentValue * 0.58
+                // 0.58 of the available height, but never below `halfDetentFloor` (so the filmstrip,
+                // capture button, and title peek stay visible on short phones like iPhone SE), and
+                // never above the maximum. On tall phones 0.58 already wins, so they don't change.
+                min(context.maximumDetentValue, max(context.maximumDetentValue * 0.58, Self.halfDetentFloor))
             }
             sheet.detents = [halfDetent, .large()]
             sheet.selectedDetentIdentifier = Self.halfDetentID   // start at half (height that peeks the title)
