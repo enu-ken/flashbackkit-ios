@@ -68,6 +68,13 @@ final class FloatingButtonTrigger: TriggerDetecting {
         button?.recordingEnabled = enabled
     }
 
+    /// Repositions the FAB into the new bounds when the overlay's size changes
+    /// (rotation / iPad multitasking). No-op when the button isn't installed.
+    func repositionForBoundsChange() {
+        guard let button, let hostView = host?.view else { return }
+        button.repositionAfterBoundsChange(in: hostView, corner: corner)
+    }
+
     /// Exposes the host's visible tab-bar inset (used to avoid overlap) to callers
     /// such as toast positioning. Reuses the same detection as the FAB via `FloatingButtonView`.
     static func hostTabBarInset(in container: UIView) -> CGFloat {
@@ -115,8 +122,11 @@ private enum FABPositionStore {
 
 /// The floating button itself: translucent, draggable, fires on long-press (pure UIKit).
 /// The glyph is a Time Slice mark (ring + wedge + hub) drawn with CAShapeLayer.
+///
+/// `internal` (not `private`) only so unit tests can exercise the bounds-change
+/// re-clamp (`repositionAfterBoundsChange`) directly; not part of the public API.
 @MainActor
-private final class FloatingButtonView: UIView {
+final class FloatingButtonView: UIView {
     var onTrigger: (() -> Void)?
     /// Long-press start (gauge begins filling) / abort (ended without firing).
     var onPressStart: (() -> Void)?
@@ -176,6 +186,9 @@ private final class FloatingButtonView: UIView {
     /// Whether the user has ever touched the button. Used to stop the post-display tab-bar
     /// recheck (re-placement) once they interact.
     private var hasUserInteracted = false
+    /// Whether a touch is currently down on the button. A bounds-change reposition is skipped
+    /// while true so it never yanks the button out from under the finger mid-drag.
+    private var isTouchActive = false
 
     init(recordingEnabled: Bool = true) {
         self.recordingEnabled = recordingEnabled
@@ -433,6 +446,7 @@ private final class FloatingButtonView: UIView {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         hasUserInteracted = true               // from here, the tab-bar recheck won't move it
+        isTouchActive = true                   // suppress bounds-change reposition while held
         didFire = false
         // Touches while tucked are for un-tucking; don't show progress.
         guard !isTucked else { return }
@@ -443,6 +457,7 @@ private final class FloatingButtonView: UIView {
 
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesEnded(touches, with: event)
+        isTouchActive = false
         clearPress(restoreActive: false)
         cancelPressStart()
         if !didFire { onPressCancel?() }       // released without firing = dismiss the early toast
@@ -450,6 +465,7 @@ private final class FloatingButtonView: UIView {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
+        isTouchActive = false
         clearPress(restoreActive: false)
         cancelPressStart()
         if !didFire { onPressCancel?() }
@@ -553,6 +569,20 @@ private final class FloatingButtonView: UIView {
         case .topTrailing:    center = CGPoint(x: maxX, y: minY)
         case .bottomLeading:  center = CGPoint(x: minX, y: maxY)
         case .bottomTrailing: center = CGPoint(x: maxX, y: maxY)
+        }
+    }
+
+    /// Re-clamps the button into the container after its size changes (rotation /
+    /// iPad multitasking). Re-running `place` restores the persisted edge + height
+    /// fraction + tuck in the new bounds. Skipped mid-touch: the drag-end handler
+    /// clamps to the current bounds itself. A second pass next runloop corrects
+    /// host tab-bar / safe-area measurements that may still be mid-rotation.
+    func repositionAfterBoundsChange(in container: UIView, corner: FloatingButtonCorner) {
+        guard !isTouchActive else { return }
+        place(in: container, corner: corner)
+        DispatchQueue.main.async { [weak self, weak container] in
+            guard let self, let container, self.superview != nil, !self.isTouchActive else { return }
+            self.place(in: container, corner: corner)
         }
     }
 

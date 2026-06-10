@@ -38,6 +38,10 @@ final class FlashbackPresenter {
     /// (e.g. the FAB).
     var onDeferredInstall: (() -> Void)?
 
+    /// Called when the overlay's size changes after initial layout (rotation / iPad
+    /// multitasking). Lets the controller re-clamp the FAB into the new bounds.
+    var onOverlaySizeChange: (() -> Void)?
+
     /// Observer that lives only while a deferred install() waits for scene connection/activation.
     private var sceneObserver: SceneConnectionObserver?
 
@@ -79,7 +83,10 @@ final class FlashbackPresenter {
         self.window = window
 
         root.view.layoutIfNeeded()          // resolve the secure canvas before adding content
-        (root.view as? SecureOverlayRootView)?.excludesFromCapture = excludesContentFromCapture
+        if let rootView = root.view as? SecureOverlayRootView {
+            rootView.excludesFromCapture = excludesContentFromCapture
+            rootView.onSizeChange = { [weak self] in self?.onOverlaySizeChange?() }
+        }
         installStatusOverlay(in: root)
     }
 
@@ -433,6 +440,13 @@ private final class SecureOverlayRootView: UIView {
     /// `secureField`'s internal render canvas (nil if unobtainable = no-exclusion fallback).
     private var canvas: UIView?
 
+    /// Fired when the overlay's size changes after the initial layout (rotation / iPad
+    /// multitasking), so mounted content (the FAB) can re-clamp itself into the new bounds.
+    var onSizeChange: (() -> Void)?
+    /// Last laid-out size. `nil` until the first `layoutSubviews`, which only records the
+    /// baseline (initial placement is the trigger's job, not a "change").
+    private var lastLaidOutSize: CGSize?
+
     /// Whether the content is excluded from OS capture. `true` (default) = mount on the excluded
     /// canvas; `false` = mount on the normal view to intentionally show it. If the canvas isn't
     /// obtained, exclusion is impossible and content mounts on the normal view.
@@ -482,6 +496,19 @@ private final class SecureOverlayRootView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         resolveCanvasIfNeeded()                            // pick it up after layout if not yet created at init
+
+        // Detect overlay size changes (rotation / iPad multitasking) and let mounted content
+        // re-clamp. The first pass only records the baseline: initial placement is the trigger's
+        // job, so we don't fire on it (would otherwise stomp the trigger's own first placement).
+        let size = bounds.size
+        if let last = lastLaidOutSize {
+            if last != size {
+                lastLaidOutSize = size
+                onSizeChange?()
+            }
+        } else {
+            lastLaidOutSize = size
+        }
     }
 
     override func addSubview(_ view: UIView) {

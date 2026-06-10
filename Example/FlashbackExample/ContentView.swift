@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import FlashbackKit
 
 /// Host screen for exercising FlashbackKit's report loop.
@@ -62,6 +63,20 @@ struct ContentView: View {
         if let toastKind = env["FLASHBACK_TOAST_DEMO"] { after(0.6) { Flashback.debugShowToast(toastKind) } }
         if env["FLASHBACK_SETTINGS_DEMO"] != nil { after(0.5) { Flashback.debugPresentSettings() } }
         if env["FLASHBACK_SHAKE_HINT_DEMO"] != nil { after(0.5) { Flashback.debugPresentShakeHint() } }
+        // Rotates the device to landscape (~2s) then back to portrait (~8s) to verify the FAB
+        // re-clamps into the new bounds on rotation. Uses the iOS16+ public geometry-update API.
+        if env["FLASHBACK_ROTATE_DEMO"] != nil {
+            after(2.0) { rotate(to: .landscapeRight) }
+            after(8.0) { rotate(to: .portrait) }
+        }
+    }
+
+    /// Requests a window-scene orientation change (iOS 16+ public API). Used by the rotate demo.
+    private static func rotate(to orientation: UIInterfaceOrientationMask) {
+        let scene = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+        scene?.requestGeometryUpdate(.iOS(interfaceOrientations: orientation))
     }
     #endif
 }

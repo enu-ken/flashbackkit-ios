@@ -71,6 +71,8 @@ final class FlashbackController {
         // triggerHost-dependent FAB once a scene connects, so the UI still appears even when a
         // SceneDelegate app calls start() from didFinishLaunching.
         presenter.onDeferredInstall = { [weak self] in self?.handleDeferredOverlayInstall() }
+        // Re-clamp any installed FAB when the overlay's size changes (rotation / iPad multitasking).
+        presenter.onOverlaySizeChange = { [weak self] in self?.repositionFloatingButtons() }
         presenter.install()
 
         settingsStore = FlashbackSettingsStore(
@@ -142,6 +144,15 @@ final class FlashbackController {
         if configuration.triggers.contains(.floatingButton) {
             installFloatingButton()
         }
+        #endif
+    }
+
+    /// Re-clamps any installed FAB into the new overlay bounds when its size changes (rotation /
+    /// iPad multitasking). The FAB is added/removed dynamically by the settings toggle, so it's
+    /// looked up live from `detectors` rather than captured (a captured reference could be stale).
+    private func repositionFloatingButtons() {
+        #if canImport(UIKit)
+        detectors.compactMap { $0 as? FloatingButtonTrigger }.forEach { $0.repositionForBoundsChange() }
         #endif
     }
 
