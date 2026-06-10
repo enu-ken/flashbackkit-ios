@@ -109,7 +109,7 @@ reproduce it?" round-trips.
 ## Installation
 
 > [!NOTE]
-> Latest release: **`0.7.0`** — pre-1.0, so the public API may change before a stable
+> Latest release: **`0.8.0`** — pre-1.0, so the public API may change before a stable
 > 1.0. Pin an exact version if you need stability.
 
 ### Swift Package Manager (Xcode)
@@ -120,13 +120,13 @@ reproduce it?" round-trips.
 https://github.com/kensuke242424/flashbackkit-ios.git
 ```
 
-Set **Dependency Rule = Up to Next Major Version** from `0.7.0` (or pin **Exact** `0.7.0`
+Set **Dependency Rule = Up to Next Major Version** from `0.8.0` (or pin **Exact** `0.8.0`
 while the API is pre-1.0).
 
 ### Package.swift
 
 ```swift
-.package(url: "https://github.com/kensuke242424/flashbackkit-ios.git", from: "0.7.0")
+.package(url: "https://github.com/kensuke242424/flashbackkit-ios.git", from: "0.8.0")
 ```
 
 ```swift
@@ -136,21 +136,30 @@ while the API is pre-1.0).
 ## Quick Start
 
 Call `Flashback.start()` **once** at app launch (e.g. in `App.init`,
-`didFinishLaunching`, or your root view's `.onAppear`):
+`didFinishLaunching`, or your root view's `.onAppear`). That single line is the whole
+integration — it installs the on-screen floating button **and** shake detection (both on by
+default) and wires up the record → trim → share flow:
 
 ```swift
 import FlashbackKit
 
-Flashback.start(
-    configuration: .init(bufferSeconds: 30),
-    onReport: { report in
-        // report.clipURL  — trimmed clip (temp file); nil when capture wasn't running
-        // report.title    — the tester's one-line note
-        // report.device   — model / OS / app version / locale …
-        myBackend.upload(report)
-    }
-)
+Flashback.start()
 ```
+
+To receive the finished report in your app (for an AI summary, Slack, your own backend, …),
+pass an `onReport` callback:
+
+```swift
+Flashback.start(onReport: { report in
+    // report.clipURL  — trimmed clip (temp file); nil when capture wasn't running
+    // report.title    — the tester's one-line note
+    // report.device   — model / OS / app version / locale …
+    myBackend.upload(report)
+})
+```
+
+Everything else — buffer length, which triggers, launch-time permission — is optional; see
+[Configuration](#configuration).
 
 > [!NOTE]
 > Call site and timing don't matter. If you call `start()` before your `UIWindowScene`
@@ -270,7 +279,7 @@ Not needed if you only use "Save to Files":
 
 | Trigger | Best for | Gesture |
 |---|---|---|
-| `.shake` | handheld testing | shake the device twice (a deliberate double-shake; one weak shake won't fire) |
+| `.shake` | handheld testing | shake the device twice (two shakes; a single jolt won't fire) |
 | `.floatingButton` | fixed / kiosk / one-handed | state-dependent: tap to start recording (grey), long-press to open the report (orange), drag to move — see below |
 
 ### Floating button interaction
@@ -389,6 +398,9 @@ behavior, please note whether you saw it on a device or the Simulator). Please k
 **zero-dependency** rule (no third-party packages) and match the existing style: `public`
 API gets doc comments, and types that touch UI / recording / shake detection are
 `@MainActor`.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build/test commands and guidelines, and
+[CHANGELOG.md](CHANGELOG.md) for the release history.
 
 ## License
 

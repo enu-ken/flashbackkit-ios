@@ -10,6 +10,10 @@ are pre-1.0 and bump the minor for each release.
 ## [0.8.0] - 2026-06-10
 
 ### Changed
+- Shake detection is more sensitive — a lighter two-shake now launches the report (the peak
+  threshold was lowered from 2.3g to 1.9g).
+- The rarely-used "show the launch button in OS screenshots/recordings" toggle moved to a
+  **Debug** section at the bottom of Settings, keeping the Display section uncluttered.
 - `FlashbackReport` and `DeviceInfo` now conform to `Codable`, `Equatable`, and `Hashable`,
   so a report can be serialized/compared without hand-mapping every field.
 - `FlashbackError` is now `internal` — it was never part of the public contract (the host
