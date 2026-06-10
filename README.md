@@ -345,9 +345,12 @@ These are platform realities the design works *around*, not bugs:
   or host the clip elsewhere and link to it.
 - **Claude / OpenAI can't analyze video directly** → extract keyframes, or use a
   video-native model.
-- **Rotation resets the pre-recording buffer** → segments of mixed dimensions can't be
-  merged losslessly, so a screen-size change (rotation / iPad multitasking) drops the ring
-  and restarts it. The captured clip then covers only the time since the new orientation.
+- **Rotation resets the pre-recording buffer** → segments of mixed format can't be merged
+  losslessly, so a change in either dimensions (iPad multitasking) or orientation (a phone
+  rotation, which ReplayKit signals via the sample's orientation attachment while keeping the
+  buffer size fixed) drops the ring and restarts it. The captured clip then covers only the
+  time since the new orientation, but is written upright (the export bakes in a
+  `preferredTransform` so rotated clips don't play back sideways).
 
 ## Example app
 

@@ -2,6 +2,7 @@
 import ReplayKit
 import AVFoundation
 import UIKit
+import ImageIO
 
 /// A ring buffer built on top of ReplayKit's in-app capture.
 ///
@@ -225,8 +226,9 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     var debugFrameAge: Double? { ringHolder.secondsSinceLastVideo() }
     /// DEBUG: whether the screen is under external capture (`UIScreen.isCaptured`).
     var debugScreenIsCaptured: Bool { Self.screenIsCaptured() }
-    /// DEBUG: dimensions of the segments currently in the ring ("WxH", or "-" when empty).
-    /// Reflects rotation resets — a change here means the size-change reset fired.
+    /// DEBUG: format of the segments currently in the ring ("WxH@o", or "-" when empty), where the
+    /// "@o" tag is the orientation (u/r/l/d, or "-" when no RPVideoSampleOrientationKey attachment
+    /// has ever arrived). Reflects rotation resets — a change here means a format-change reset fired.
     var debugRingDimensions: String { ring?.debugDimensionsText ?? "-" }
     /// DEBUG: whether in-app recording itself set isCaptured this session (probe result; nil = undetermined).
     var debugInAppMarksCaptured: Bool? { inAppMarksCaptured }
@@ -456,18 +458,37 @@ final class SegmentRingWriter: @unchecked Sendable {
     /// change (rotation) so the ring can be reset before mixing incompatible segments. Touched
     /// only on `queue`; a DEBUG-only mirror (`mirrorDimensionsForDebug`) exposes it to the HUD.
     private var ringDimensions: CMVideoDimensions? {
-        didSet { mirrorDimensionsForDebug(ringDimensions) }   // expose to the MainActor HUD (DEBUG only)
+        didSet { mirrorFormatForDebug() }   // expose to the MainActor HUD (DEBUG only)
+    }
+    /// The ring's confirmed sample orientation (RPVideoSampleOrientationKey, as a
+    /// `CGImagePropertyOrientation`). Set from the first sample of a segment in `startNewSegment`,
+    /// nil when the ring is empty. On a physical device, ReplayKit keeps the buffer dimensions
+    /// fixed (native portrait surface) and signals rotation by changing this attachment instead,
+    /// so an orientation change is treated the same as a size change: reset the ring so we never
+    /// merge segments of differing orientation, and drive `composeAndExport`'s upright transform.
+    /// Touched only on `queue`; mirrored to the HUD via `mirrorFormatForDebug` (DEBUG only).
+    private var ringOrientation: CGImagePropertyOrientation? {
+        didSet { mirrorFormatForDebug() }
+    }
+    /// Whether *any* sample seen by this ring carried an RPVideoSampleOrientationKey attachment.
+    /// Distinguishes "no attachment ever (treated as .up)" from "attachment present and == .up" on
+    /// the HUD — the ground truth we need from a device to know whether rotation is even signalled
+    /// via this attachment. Sticky once true; touched only on `queue`, mirrored for the HUD.
+    private var sawOrientationAttachment = false {
+        didSet { mirrorFormatForDebug() }
     }
     /// Torn-down flag. Guards against late samples arriving after finalization recreating a segment.
     private var tornDown = false
 
-    /// Mirror `ringDimensions` into an NSLock-guarded box (DEBUG only) so the MainActor
-    /// diagnostics line can read it without hopping onto `queue` (same pattern as RingHolder's
-    /// lastVideoNanos). A no-op in Release.
-    private func mirrorDimensionsForDebug(_ dims: CMVideoDimensions?) {
+    /// Mirror the ring's dimensions + orientation into an NSLock-guarded box (DEBUG only) so the
+    /// MainActor diagnostics line can read it without hopping onto `queue` (same pattern as
+    /// RingHolder's lastVideoNanos). A no-op in Release.
+    private func mirrorFormatForDebug() {
         #if DEBUG
         debugDimsLock.lock()
-        debugRingDimensions = dims.map { ($0.width, $0.height) }
+        debugRingDimensions = ringDimensions.map { ($0.width, $0.height) }
+        debugRingOrientation = ringOrientation
+        debugSawOrientationAttachment = sawOrientationAttachment
         debugDimsLock.unlock()
         #endif
     }
@@ -475,12 +496,34 @@ final class SegmentRingWriter: @unchecked Sendable {
     #if DEBUG
     private let debugDimsLock = NSLock()
     private var debugRingDimensions: (width: Int32, height: Int32)?
+    private var debugRingOrientation: CGImagePropertyOrientation?
+    private var debugSawOrientationAttachment = false
 
-    /// DEBUG: the ring's current segment dimensions ("WxH"), or "-" when the ring is empty.
+    /// DEBUG: the ring's current segment format ("WxH@o"), or "-" when the ring is empty.
+    /// The `@o` suffix is the orientation tag: `u`=up, `r`=right, `l`=left, `d`=down, and `@-`
+    /// when no RPVideoSampleOrientationKey attachment has ever arrived (so "attachment absent" is
+    /// visibly distinct from "attachment present and == .up", which both render upright). On a
+    /// device, `@-` while rotating means rotation is NOT signalled via this attachment.
     var debugDimensionsText: String {
-        debugDimsLock.lock(); let d = debugRingDimensions; debugDimsLock.unlock()
+        debugDimsLock.lock()
+        let d = debugRingDimensions
+        let o = debugRingOrientation
+        let saw = debugSawOrientationAttachment
+        debugDimsLock.unlock()
         guard let d else { return "-" }
-        return "\(d.width)x\(d.height)"
+        let tag = saw ? Self.orientationTag(o ?? .up) : "-"
+        return "\(d.width)x\(d.height)@\(tag)"
+    }
+
+    /// DEBUG: one-letter tag for an orientation (u/r/l/d). Falls back to "u" for unexpected values.
+    private static func orientationTag(_ o: CGImagePropertyOrientation) -> String {
+        switch o {
+        case .up, .upMirrored: return "u"
+        case .right, .rightMirrored: return "r"
+        case .left, .leftMirrored: return "l"
+        case .down, .downMirrored: return "d"
+        @unknown default: return "u"
+        }
     }
     #endif
 
@@ -503,21 +546,30 @@ final class SegmentRingWriter: @unchecked Sendable {
         guard !tornDown else { return }                    // drop late samples after finalization
         guard CMSampleBufferDataIsReady(sb) else { return }
         let pts = CMSampleBufferGetPresentationTimeStamp(sb)
+        let orientation = self.orientation(of: sb)         // effective orientation (.up when no attachment); also flags "saw attachment"
 
-        // Screen size changed (rotation / iPad multitasking): mixed-dimension segments
-        // can't be passthrough-merged, so drop the buffered ring and restart at the new size.
+        // Format changed (rotation / iPad multitasking). Two independent signals, both routed to the
+        // same reset so we never passthrough-merge incompatible segments:
+        //  1. Dimension change — happens when the surface size flips (e.g. iPad multitasking).
+        //  2. Orientation-attachment change — on a phone ReplayKit keeps the buffer dimensions fixed
+        //     (native portrait surface) and rotates the *content*, flagging it via
+        //     RPVideoSampleOrientationKey only. Without (2), a rotated clip plays back sideways.
+        // Belt-and-braces: keep both checks even though a single one usually fires per rotation.
         if let fmt = CMSampleBufferGetFormatDescription(sb) {
             let dim = CMVideoFormatDescriptionGetDimensions(fmt)
-            if let current = ringDimensions, current.width != dim.width || current.height != dim.height {
-                resetForSizeChange(from: current, to: dim)
+            let sizeChanged = ringDimensions.map { $0.width != dim.width || $0.height != dim.height } ?? false
+            let orientationChanged = ringOrientation.map { $0 != orientation } ?? false
+            if sizeChanged || orientationChanged {
+                resetForFormatChange(fromDim: ringDimensions, toDim: dim,
+                                     fromOrientation: ringOrientation, toOrientation: orientation)
             }
         }
 
         if writer == nil {
-            startNewSegment(firstSample: sb, at: pts)
+            startNewSegment(firstSample: sb, at: pts, orientation: orientation)
         } else if CMTimeGetSeconds(CMTimeSubtract(pts, currentSegmentStart)) >= segmentDuration {
             finalizeCurrent()
-            startNewSegment(firstSample: sb, at: pts)
+            startNewSegment(firstSample: sb, at: pts, orientation: orientation)
         }
 
         guard let writer, writer.status == .writing,
@@ -527,7 +579,8 @@ final class SegmentRingWriter: @unchecked Sendable {
 
     // MARK: - Segments
 
-    private func startNewSegment(firstSample sb: CMSampleBuffer, at pts: CMTime) {
+    private func startNewSegment(firstSample sb: CMSampleBuffer, at pts: CMTime,
+                                 orientation: CGImagePropertyOrientation) {
         guard let fmt = CMSampleBufferGetFormatDescription(sb) else { return }
         let dim = CMVideoFormatDescriptionGetDimensions(fmt)
         guard dim.width > 0, dim.height > 0 else { return }
@@ -550,6 +603,23 @@ final class SegmentRingWriter: @unchecked Sendable {
         videoInput = input
         currentSegmentStart = pts
         ringDimensions = dim                               // record the ring's dimensions (rotation detection)
+        ringOrientation = orientation                      // record the ring's orientation (rotation detection)
+    }
+
+    /// Read the effective orientation of a sample buffer from its RPVideoSampleOrientationKey
+    /// attachment (an `NSNumber` carrying a `CGImagePropertyOrientation` rawValue). On a physical
+    /// device this is how ReplayKit signals rotation: the pixel surface stays the native-portrait
+    /// size, and the value flips to .left/.right/.down as the device rotates. When the attachment
+    /// is absent (older OS / Simulator synthetic frames) the content is treated as `.up`.
+    /// Also records that an attachment was seen, so the HUD can distinguish "absent" from "== .up".
+    private func orientation(of sb: CMSampleBuffer) -> CGImagePropertyOrientation {
+        guard let raw = CMGetAttachment(sb, key: RPVideoSampleOrientationKey as CFString,
+                                        attachmentModeOut: nil) as? NSNumber,
+              let o = CGImagePropertyOrientation(rawValue: raw.uint32Value) else {
+            return .up                                     // no attachment → treat as upright
+        }
+        sawOrientationAttachment = true                    // an attachment exists (HUD ground truth)
+        return o
     }
 
     /// Finalize the current segment; on completion, append its URL to the ring and drop old ones.
@@ -598,43 +668,66 @@ final class SegmentRingWriter: @unchecked Sendable {
         }
         segmentURLs.removeAll()
         ringDimensions = nil
+        ringOrientation = nil
     }
 
-    /// Drop the entire ring after a screen-size change so the next export only merges
-    /// same-dimension segments. Runs synchronously on `queue` (no torn-down flag = recording
-    /// continues; the next sample opens a new segment at the new size).
-    private func resetForSizeChange(from: CMVideoDimensions, to: CMVideoDimensions) {
-        // The in-progress segment holds only old-dimension frames: cancel it and drop its
-        // partial file (don't finalize — it's incompatible with the new size).
+    /// Drop the entire ring after a format change (dimension and/or orientation) so the next export
+    /// only merges segments that share both. Runs synchronously on `queue` (no torn-down flag =
+    /// recording continues; the next sample opens a new segment at the new format).
+    private func resetForFormatChange(fromDim: CMVideoDimensions?, toDim: CMVideoDimensions,
+                                      fromOrientation: CGImagePropertyOrientation?,
+                                      toOrientation: CGImagePropertyOrientation) {
+        // The in-progress segment holds only old-format frames: cancel it and drop its partial
+        // file (don't finalize — it's incompatible with the new dimensions/orientation).
         if let writer, let input = videoInput {
             input.markAsFinished()
             let url = writer.outputURL
             writer.cancelWriting()
             try? FileManager.default.removeItem(at: url)
         }
-        deleteAllSegments()                                // also clears ringDimensions
+        deleteAllSegments()                                // also clears ringDimensions / ringOrientation
         writer = nil
         videoInput = nil
         currentSegmentStart = .invalid
-        FlashbackLog.lifecycle.info("画面サイズ変化を検知（\(from.width)x\(from.height)→\(to.width)x\(to.height)）。リングバッファをリセットし新サイズで録り直す。")
+        let fromText = fromDim.map { "\($0.width)x\($0.height)" } ?? "?"
+        let fromO = Self.orientationName(fromOrientation)
+        let toO = Self.orientationName(toOrientation)
+        FlashbackLog.lifecycle.info("画面フォーマット変化を検知（\(fromText)@\(fromO)→\(toDim.width)x\(toDim.height)@\(toO)）。リングバッファをリセットし新フォーマットで録り直す。")
+    }
+
+    /// Human-readable orientation name for logging (up/right/left/down).
+    private static func orientationName(_ o: CGImagePropertyOrientation?) -> String {
+        guard let o else { return "?" }
+        switch o {
+        case .up, .upMirrored: return "up"
+        case .right, .rightMirrored: return "right"
+        case .left, .leftMirrored: return "left"
+        case .down, .downMirrored: return "down"
+        @unknown default: return "up"
+        }
     }
 
     // MARK: - Export / teardown
 
     func export() async throws -> URL {
-        let segments = try await finalizeAndSnapshot()
-        return try await Self.composeAndExport(segments: segments, targetSeconds: bufferSeconds)
+        let snapshot = try await finalizeAndSnapshot()
+        return try await Self.composeAndExport(segments: snapshot.segments,
+                                               orientation: snapshot.orientation,
+                                               targetSeconds: bufferSeconds)
     }
 
-    private func finalizeAndSnapshot() async throws -> [URL] {
+    private func finalizeAndSnapshot() async throws -> (segments: [URL], orientation: CGImagePropertyOrientation) {
         try await withCheckedThrowingContinuation { continuation in
             queue.async { [self] in
                 finalizeCurrent {
                     let segs = self.segmentURLs
+                    // Capture the orientation under the same queue hop as the segment list so the
+                    // upright transform matches exactly the frames being exported (.up if unknown).
+                    let orientation = self.ringOrientation ?? .up
                     if segs.isEmpty {
                         continuation.resume(throwing: FlashbackError.recordingUnavailable)
                     } else {
-                        continuation.resume(returning: segs)
+                        continuation.resume(returning: (segs, orientation))
                     }
                 }
             }
@@ -656,7 +749,9 @@ final class SegmentRingWriter: @unchecked Sendable {
     /// (passthrough may snap to keyframe boundaries with a few frames of error — same approach as
     /// ClipTrimmer). If the concatenated length is under N, return the whole thing (can't fill in
     /// missing stock).
-    private static func composeAndExport(segments: [URL], targetSeconds: TimeInterval) async throws -> URL {
+    private static func composeAndExport(segments: [URL],
+                                         orientation: CGImagePropertyOrientation,
+                                         targetSeconds: TimeInterval) async throws -> URL {
         let composition = AVMutableComposition()
         guard let track = composition.addMutableTrack(
             withMediaType: .video,
@@ -666,17 +761,28 @@ final class SegmentRingWriter: @unchecked Sendable {
         }
 
         var cursor = CMTime.zero
+        var naturalSize: CGSize?
         for url in segments {
             let asset = AVURLAsset(url: url)
             guard let assetTrack = try? await asset.loadTracks(withMediaType: .video).first,
                   let duration = try? await asset.load(.duration), duration > .zero else {
                 continue
             }
+            if naturalSize == nil { naturalSize = try? await assetTrack.load(.naturalSize) }
             let range = CMTimeRange(start: .zero, duration: duration)
             try? track.insertTimeRange(range, of: assetTrack, at: cursor)
             cursor = CMTimeAdd(cursor, duration)
         }
         guard cursor > .zero else { throw FlashbackError.recordingUnavailable }
+
+        // Set the upright transform as metadata (no re-encode). On a phone, ReplayKit's buffer is the
+        // native-portrait surface and rotation lives only in the orientation attachment, so the raw
+        // frames are sideways/upside-down for non-portrait device orientations. The preferredTransform
+        // tells every player/exporter how to display them upright. For .up it's identity, so existing
+        // (portrait) recordings are byte-for-byte unchanged.
+        if let naturalSize {
+            track.preferredTransform = uprightTransform(for: orientation, naturalSize: naturalSize)
+        }
 
         let outURL = tempURL(prefix: "flashback-")
         guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetPassthrough) else {
@@ -698,6 +804,39 @@ final class SegmentRingWriter: @unchecked Sendable {
             throw session.error ?? FlashbackError.recordingUnavailable
         }
         return outURL
+    }
+
+    /// Affine transform that displays a frame of `naturalSize` upright, given the orientation of its
+    /// stored pixels (`CGImagePropertyOrientation`). `CGImagePropertyOrientation` names how the
+    /// pixels are stored relative to upright, so the transform is the rotation that *undoes* it:
+    ///
+    /// - `.up`     → identity. The frame is already upright; existing portrait clips are unchanged.
+    /// - `.down`   → 180°. The frame is upside-down (rotate π, then translate by (w, h) to bring it
+    ///                back into the positive quadrant). Display size stays (w, h).
+    /// - `.right`  → +90° (clockwise). `.right` means the stored row 0 is on the right edge, i.e.
+    ///                the frame must rotate +π/2 to stand up. After rotation the rect lands in
+    ///                negative x, so translate by (h, 0). Display size becomes (h, w) — W/H swap.
+    /// - `.left`   → −90° (counter-clockwise). Mirror of `.right`: rotate −π/2 and translate by
+    ///                (0, w). Display size becomes (h, w) — W/H swap.
+    ///
+    /// (Mirrored variants are folded into their base rotation; the screen recorder never produces
+    /// mirrored frames, so the extra flip is intentionally omitted.) Tests pin the resulting matrix
+    /// and the post-transform display size for each case.
+    static func uprightTransform(for orientation: CGImagePropertyOrientation,
+                                 naturalSize: CGSize) -> CGAffineTransform {
+        let w = naturalSize.width, h = naturalSize.height
+        switch orientation {
+        case .up, .upMirrored:
+            return .identity
+        case .down, .downMirrored:
+            return CGAffineTransform(rotationAngle: .pi).translatedBy(x: -w, y: -h)
+        case .right, .rightMirrored:
+            return CGAffineTransform(rotationAngle: .pi / 2).translatedBy(x: 0, y: -h)
+        case .left, .leftMirrored:
+            return CGAffineTransform(rotationAngle: -.pi / 2).translatedBy(x: -w, y: 0)
+        @unknown default:
+            return .identity
+        }
     }
 
     // MARK: - Temp files

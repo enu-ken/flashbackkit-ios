@@ -2,6 +2,7 @@
 import XCTest
 import AVFoundation
 import CoreMedia
+import ImageIO
 import ReplayKit
 @testable import FlashbackKit
 
@@ -119,6 +120,126 @@ final class ScreenRecorderPipelineTests: XCTestCase {
         XCTAssertEqual(size.height, 64, "naturalSize.height が新寸法でない: \(size.height)")
     }
 
+    /// 同寸法のまま orientation 添付だけが途中で .up→.right に変わるケース（実機の回転挙動）。
+    /// ReplayKit は実機で寸法を変えず RPVideoSampleOrientationKey の値だけを切り替えるので、
+    /// 寸法シグナルでは捕まらない。orientation 変化でリングがリセットされ（出力は後半ぶんのみ）、
+    /// かつ出力トラックの preferredTransform が非 identity で「表示サイズの W/H が入れ替わる」ことを確認。
+    func testOrientationChangeResetsRingAndAppliesUprightTransform() async throws {
+        let writer = SegmentRingWriter(bufferSeconds: 3)   // segmentDuration=2, maxSegments=3
+        let fps = 10
+        let frameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
+
+        // 前半: 64x48 を 20 フレーム（2 秒）添付なし（= 実効 .up）。
+        // 後半: 同寸 64x48 を 10 フレーム（1 秒）、orientation=.right を添付。
+        // 寸法は終始同一なので、リセットの引き金になるのは orientation 変化のみ。
+        let firstCount = 20
+        let secondCount = 10
+        let w = 64, h = 48
+        for i in 0..<(firstCount + secondCount) {
+            let pts = CMTimeMultiply(frameDuration, multiplier: Int32(i))
+            let isSecond = i >= firstCount
+            let pixelBuffer = try makePixelBuffer(width: w, height: h, frameIndex: i)
+            let orientation: CGImagePropertyOrientation? = isSecond ? .right : nil
+            let sampleBuffer = try makeSampleBuffer(pixelBuffer: pixelBuffer, pts: pts,
+                                                    duration: frameDuration, orientation: orientation)
+            writer.ingest(sampleBuffer, type: .video)
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        let url = try await writer.export()
+        defer { writer.teardown(); try? FileManager.default.removeItem(at: url) }
+
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first, "video トラックが無い")
+
+        // 1) 旧 .up セグメントが捨てられている証拠として、尺は後半（≒1.0s）ぶんのみ。
+        let seconds = CMTimeGetSeconds(try await asset.load(.duration))
+        XCTAssertLessThan(seconds, 1.6, "orientation 変化前のセグメントが残っている疑い（尺が長すぎ）: \(seconds)s")
+
+        // 2) preferredTransform が .right の正立化（90°回転）になっている＝非 identity。
+        let transform = try await track.load(.preferredTransform)
+        XCTAssertNotEqual(transform, .identity, "orientation 変化後も transform が identity のまま（正立化されていない）")
+
+        // 3) naturalSize に transform を適用した「表示サイズ」が W/H 入れ替わる（64x48 → 48x64 相当）。
+        let natural = try await track.load(.naturalSize)
+        let displayed = natural.applying(transform)
+        XCTAssertEqual(abs(displayed.width), CGFloat(h), accuracy: 0.5, "表示幅が H と入れ替わっていない")
+        XCTAssertEqual(abs(displayed.height), CGFloat(w), accuracy: 0.5, "表示高さが W と入れ替わっていない")
+
+        // 4) 期待の回転行列（+90°）であることを固定。a≈0, b≈1, c≈-1, d≈0。
+        XCTAssertEqual(transform.a, 0, accuracy: 0.001)
+        XCTAssertEqual(transform.b, 1, accuracy: 0.001)
+        XCTAssertEqual(transform.c, -1, accuracy: 0.001)
+        XCTAssertEqual(transform.d, 0, accuracy: 0.001)
+    }
+
+    /// 全フレーム .up（添付あり）のケース。orientation が一定なのでリセットは起きず、
+    /// 出力トラックの preferredTransform は identity（= 既存の縦持ち録画の挙動が不変）。
+    func testUprightOrientationKeepsIdentityTransform() async throws {
+        let writer = SegmentRingWriter(bufferSeconds: 3)   // segmentDuration=2, maxSegments=3
+        let fps = 10
+        let total = 30                                     // 3 秒
+        let frameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
+        for i in 0..<total {
+            let pts = CMTimeMultiply(frameDuration, multiplier: Int32(i))
+            let pixelBuffer = try makePixelBuffer(width: 48, height: 64, frameIndex: i)
+            let sampleBuffer = try makeSampleBuffer(pixelBuffer: pixelBuffer, pts: pts,
+                                                    duration: frameDuration, orientation: .up)
+            writer.ingest(sampleBuffer, type: .video)
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        let url = try await writer.export()
+        defer { writer.teardown(); try? FileManager.default.removeItem(at: url) }
+
+        let asset = AVURLAsset(url: url)
+        let tracks = try await asset.loadTracks(withMediaType: .video)
+        let track = try XCTUnwrap(tracks.first, "video トラックが無い")
+
+        // 添付ありでも .up は identity（既存挙動不変）。
+        let transform = try await track.load(.preferredTransform)
+        XCTAssertEqual(transform, .identity, ".up なのに transform が identity でない（既存挙動が変わっている）")
+
+        // リセットが起きていない＝尺が 3 秒ぶん（リング上限）程度に収まる。
+        let seconds = CMTimeGetSeconds(try await asset.load(.duration))
+        XCTAssertGreaterThan(seconds, 1.0, "尺が短すぎる（不要なリセットが起きた疑い）: \(seconds)s")
+    }
+
+    /// ClipTrimmer の passthrough 切り出しが preferredTransform を保持することの確認。
+    /// 直接 asset を渡す timeRange export はトラックのメタデータ（transform 含む）を引き継ぐ。
+    /// composeAndExport が焼いた正立 transform が、共有前のトリムで失われないことを担保する。
+    func testClipTrimmerPreservesPreferredTransform() async throws {
+        // composeAndExport を通って .right の正立 transform を持つクリップを作る。
+        let writer = SegmentRingWriter(bufferSeconds: 3)
+        let fps = 10
+        let total = 20                                     // 2 秒
+        let frameDuration = CMTime(value: 1, timescale: CMTimeScale(fps))
+        for i in 0..<total {
+            let pts = CMTimeMultiply(frameDuration, multiplier: Int32(i))
+            let pixelBuffer = try makePixelBuffer(width: 64, height: 48, frameIndex: i)
+            let sampleBuffer = try makeSampleBuffer(pixelBuffer: pixelBuffer, pts: pts,
+                                                    duration: frameDuration, orientation: .right)
+            writer.ingest(sampleBuffer, type: .video)
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        let source = try await writer.export()
+        defer { writer.teardown(); try? FileManager.default.removeItem(at: source) }
+
+        let sourceTransform = try await AVURLAsset(url: source)
+            .loadTracks(withMediaType: .video).first!.load(.preferredTransform)
+        XCTAssertNotEqual(sourceTransform, .identity, "前提: 元クリップは非 identity transform を持つはず")
+
+        // 部分範囲に切り出す（passthrough）。transform が保持されることを確認。
+        let trimmed = try await ClipTrimmer.trim(source, fromSeconds: 0.3, toSeconds: 1.3)
+        defer { if trimmed != source { try? FileManager.default.removeItem(at: trimmed) } }
+        XCTAssertNotEqual(trimmed, source, "部分範囲なのに切り出されていない")
+
+        let trimmedTransform = try await AVURLAsset(url: trimmed)
+            .loadTracks(withMediaType: .video).first!.load(.preferredTransform)
+        XCTAssertEqual(trimmedTransform, sourceTransform, "トリム後に preferredTransform が失われている")
+    }
+
     // MARK: - 合成フレーム生成
 
     private func makePixelBuffer(width: Int, height: Int, frameIndex: Int) throws -> CVPixelBuffer {
@@ -146,7 +267,11 @@ final class ScreenRecorderPipelineTests: XCTestCase {
         return pixelBuffer
     }
 
-    private func makeSampleBuffer(pixelBuffer: CVPixelBuffer, pts: CMTime, duration: CMTime) throws -> CMSampleBuffer {
+    /// `orientation` を渡すと RPVideoSampleOrientationKey 添付（CGImagePropertyOrientation
+    /// rawValue の NSNumber）を `CMSetAttachment` で付与する。nil なら添付なし（= 実効 .up）。
+    /// ReplayKit は Simulator でも import できるため、添付キーの利用自体は Sim 上で検証できる。
+    private func makeSampleBuffer(pixelBuffer: CVPixelBuffer, pts: CMTime, duration: CMTime,
+                                  orientation: CGImagePropertyOrientation? = nil) throws -> CMSampleBuffer {
         var formatDesc: CMVideoFormatDescription?
         let fmtStatus = CMVideoFormatDescriptionCreateForImageBuffer(
             allocator: kCFAllocatorDefault, imageBuffer: pixelBuffer, formatDescriptionOut: &formatDesc
@@ -169,6 +294,11 @@ final class ScreenRecorderPipelineTests: XCTestCase {
         )
         guard sbStatus == noErr, let sampleBuffer else {
             throw XCTSkip("CMSampleBuffer を生成できない環境")
+        }
+        if let orientation {
+            CMSetAttachment(sampleBuffer, key: RPVideoSampleOrientationKey as CFString,
+                            value: NSNumber(value: orientation.rawValue),
+                            attachmentMode: kCMAttachmentMode_ShouldPropagate)
         }
         return sampleBuffer
     }
