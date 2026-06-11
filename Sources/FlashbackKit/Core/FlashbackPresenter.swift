@@ -46,7 +46,7 @@ final class FlashbackPresenter {
     /// `updateReportBackdrop` ramps `0 → backdropMaxAlpha` only over the slide-in below the half
     /// height and then holds flat, so this is the single constant that controls the whole scrim's
     /// darkness; adjust it here to make the mask lighter or heavier.
-    static let backdropMaxAlpha: CGFloat = 0.4
+    static let backdropMaxAlpha: CGFloat = 0.5
 
     private let model = OverlayModel()
     private var window: UIWindow?
