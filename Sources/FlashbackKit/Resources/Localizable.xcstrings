@@ -1,0 +1,728 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld sec" : {
+      "comment" : "SettingsView: retention option label, e.g. \"20 sec\".",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 秒"
+          }
+        }
+      }
+    },
+    "Add %@ to the title" : {
+      "comment" : "ReportView: accessibility label for the + button that appends a device-info value to the title.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タイトルへ%@を追加"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "comment" : "ReportView: accessibility label for the ✕ (close) button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
+    },
+    "Capture this moment as an image" : {
+      "comment" : "VideoTrimmerView: accessibility label for the still-capture button under the playhead.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この瞬間を画像で保存"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "comment" : "FlashbackPresenter: dismiss button for the standalone debug settings screen.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        }
+      }
+    },
+    "Confirm permission on launch" : {
+      "comment" : "SettingsView: toggle title for prompting screen-recording permission on launch.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリ起動時に権限を確認する"
+          }
+        }
+      }
+    },
+    "Couldn't write out the memory" : {
+      "comment" : "FlashbackController: failure toast when clip export fails.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記憶の書き出しに失敗しました"
+          }
+        }
+      }
+    },
+    "Debug" : {
+      "comment" : "SettingsView: header for the debug section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバッグ"
+          }
+        }
+      }
+    },
+    "Display" : {
+      "comment" : "SettingsView: header for the display section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示"
+          }
+        }
+      }
+    },
+    "Drag left or right to adjust, then share the frame at the playhead as an image." : {
+      "comment" : "VideoTrimmerView: accessibility hint for the still-capture button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生ヘッドの位置の画面を画像として共有します。左右ドラッグで位置調整。"
+          }
+        }
+      }
+    },
+    "End" : {
+      "comment" : "VideoTrimmerView: accessibility label for the trim end handle.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終了位置"
+          }
+        }
+      }
+    },
+    "Enter a title" : {
+      "comment" : "ReportView: placeholder for the title text field.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タイトルを入力"
+          }
+        }
+      }
+    },
+    "Environment" : {
+      "comment" : "ReportView: header for the device-info section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "環境情報"
+          }
+        }
+      }
+    },
+    "From the next launch on, your recent activity is kept automatically." : {
+      "comment" : "ReportView: body of the just-enabled state (no clip captured this time).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次回の起動操作から、直前の操作を自動で保持します。"
+          }
+        }
+      }
+    },
+    "iOS asks to confirm screen recording" : {
+      "comment" : "PermissionPrimingView: accessibility hint that the OS prompt will appear.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS の画面収録の確認が表示されます"
+          }
+        }
+      }
+    },
+    "Keep the selected number of seconds of recording at all times, and write it out when triggered. Longer uses more memory." : {
+      "comment" : "SettingsView: footer for the retention-length section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選択した秒数の録画を常に保持し、発火時に書き出します。長いほどメモリを使います。"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "comment" : "PermissionPrimingView: dismiss button (defer enabling).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あとで"
+          }
+        }
+      }
+    },
+    "Launch Flashback" : {
+      "comment" : "FloatingButtonTrigger: accessibility label for the floating launch button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Flashback を起動"
+          }
+        }
+      }
+    },
+    "Long-press to launch a report" : {
+      "comment" : "FlashbackController: info toast shown after a short FAB tap while recording is on.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長押しでレポート起動"
+          }
+        }
+      }
+    },
+    "Long-press to launch a report." : {
+      "comment" : "FloatingButtonTrigger: accessibility hint while recording is on (full sentence).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長押しでレポートを起動"
+          }
+        }
+      }
+    },
+    "OK" : {
+      "comment" : "ShakeHintView: dismiss button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "Once you turn it on, the recording of your latest actions is kept automatically." : {
+      "comment" : "ReportView: body of the dormant (recording off) empty state.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オンにすると、直前の操作の録画を自動で保持します。"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "comment" : "VideoTrimmerView: accessibility label for the pause button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時停止"
+          }
+        }
+      }
+    },
+    "Paused" : {
+      "comment" : "VideoTrimmerView: accessibility value when the preview is paused.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一時停止中"
+          }
+        }
+      }
+    },
+    "Play" : {
+      "comment" : "VideoTrimmerView: accessibility label for the play button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生"
+          }
+        }
+      }
+    },
+    "Playback position" : {
+      "comment" : "VideoTrimmerView: accessibility label for the playhead.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生位置"
+          }
+        }
+      }
+    },
+    "Playing" : {
+      "comment" : "VideoTrimmerView: accessibility value when the preview is playing.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生中"
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "comment" : "VideoTrimmerView: accessibility label for the video preview area.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プレビュー"
+          }
+        }
+      }
+    },
+    "Proceed to allow" : {
+      "comment" : "PermissionPrimingView: CTA to continue to the OS permission prompt.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "許可へ進む"
+          }
+        }
+      }
+    },
+    "Recording" : {
+      "comment" : "Status label: recording is active (ReportView pill and SettingsView status row).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画中"
+          }
+        }
+      }
+    },
+    "Recording isn't available on this device" : {
+      "comment" : "ReportView: caption in the unavailable placeholder box.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末では画面収録を利用できません"
+          }
+        }
+      }
+    },
+    "Recording isn't possible on the Simulator or in environments that don't support screen recording. Please try a real device." : {
+      "comment" : "ReportView: body of the unavailable empty state (no CTA).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simulator や画面収録に対応していない環境では録画できません。実機でお試しください。"
+          }
+        }
+      }
+    },
+    "Recording is off" : {
+      "comment" : "ReportView: caption in the dormant placeholder box.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画はオフです"
+          }
+        }
+      }
+    },
+    "Recording paused for screen recording" : {
+      "comment" : "FlashbackController: info toast when recording is interrupted by external screen capture.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面収録のため録画を中断しました"
+          }
+        }
+      }
+    },
+    "Recording started" : {
+      "comment" : "FlashbackController: info toast when recording successfully starts.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画を開始しました"
+          }
+        }
+      }
+    },
+    "Recording turned on" : {
+      "comment" : "ReportView: heading in the just-enabled placeholder box.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画をオンにしました"
+          }
+        }
+      }
+    },
+    "Remove %@ from the title" : {
+      "comment" : "ReportView: accessibility label for the − button that removes a device-info value from the title.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タイトルから%@を除去"
+          }
+        }
+      }
+    },
+    "Report" : {
+      "comment" : "ReportView: navigation title (back-button label for the child settings screen).",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "レポート"
+          }
+        }
+      }
+    },
+    "Resuming recording" : {
+      "comment" : "FlashbackController: info toast when recording auto-resumes after external capture ends.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画を再開しました"
+          }
+        }
+      }
+    },
+    "Retracing memory…" : {
+      "comment" : "FlashbackController: progress toast while exporting the buffered clip.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記憶を辿っています…"
+          }
+        }
+      }
+    },
+    "Retry" : {
+      "comment" : "FlashbackPresenter: retry button on the failure toast.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行"
+          }
+        }
+      }
+    },
+    "section.recording" : {
+      "comment" : "SettingsView: header for the recording (permission) section. English: \"Recording\".",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画"
+          }
+        }
+      }
+    },
+    "settings.enableRecording" : {
+      "comment" : "SettingsView: button to re-enable recording when off. English: \"Enable recording\".",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable recording"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画を有効にする"
+          }
+        }
+      }
+    },
+    "report.enableRecording" : {
+      "comment" : "ReportView: CTA in the dormant (recording off) empty state. English: \"Enable recording\".",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable recording"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画をオンにする"
+          }
+        }
+      }
+    },
+    "Recording length to keep" : {
+      "comment" : "SettingsView: header for the retention-length section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保持する録画の長さ"
+          }
+        }
+      }
+    },
+    "Screen recording" : {
+      "comment" : "SettingsView: label for the screen-recording status row.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面収録"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "comment" : "SettingsView: navigation title; also the gear-button accessibility label in ReportView.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
+          }
+        }
+      }
+    },
+    "Shake the device twice to launch a report." : {
+      "comment" : "ShakeHintView: one-time hint that a double shake launches the report.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末を 2 回振ると、レポートを起動できます。"
+          }
+        }
+      }
+    },
+    "Share" : {
+      "comment" : "ReportView: accessibility label for the share button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有"
+          }
+        }
+      }
+    },
+    "Show a launch button on screen" : {
+      "comment" : "SettingsView: toggle title for the floating launch button.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面上に起動ボタンを表示"
+          }
+        }
+      }
+    },
+    "Show the launch button in OS screenshots and recordings" : {
+      "comment" : "SettingsView: debug toggle title to include the FAB in OS captures.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "起動ボタンを OS のスクリーンショット・録画に写す"
+          }
+        }
+      }
+    },
+    "Shows a launch button on screen so you can launch a report from it. (You can also launch by shaking the device twice.)" : {
+      "comment" : "SettingsView: footer for the display section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面上に起動ボタンを表示し、そこからレポートを起動できます。（端末を2回振っても起動できます。）"
+          }
+        }
+      }
+    },
+    "Start" : {
+      "comment" : "VideoTrimmerView: accessibility label for the trim start handle.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始位置"
+          }
+        }
+      }
+    },
+    "Stop recording" : {
+      "comment" : "SettingsView: button to stop active recording.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画を停止する"
+          }
+        }
+      }
+    },
+    "Stopped" : {
+      "comment" : "SettingsView: status label when recording is stopped.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止中"
+          }
+        }
+      }
+    },
+    "Tap to launch the OS prompt" : {
+      "comment" : "PermissionPrimingView: muted hint that the next tap surfaces the OS prompt.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップすると iOS の確認が表示されます"
+          }
+        }
+      }
+    },
+    "Tap to play / pause" : {
+      "comment" : "VideoTrimmerView: accessibility hint for the preview tap gesture.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップで再生 / 一時停止"
+          }
+        }
+      }
+    },
+    "Tap to show" : {
+      "comment" : "FloatingButtonTrigger: accessibility hint when the button is tucked at the edge.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップで表示"
+          }
+        }
+      }
+    },
+    "Tap to start recording" : {
+      "comment" : "FloatingButtonTrigger: accessibility hint while recording is off.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップで録画を開始"
+          }
+        }
+      }
+    },
+    "Title" : {
+      "comment" : "ReportView: label for the title field.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タイトル"
+          }
+        }
+      }
+    },
+    "Turn screen recording on" : {
+      "comment" : "PermissionPrimingView: title heading for the priming sheet.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面収録をオンにします"
+          }
+        }
+      }
+    },
+    "Usually unnecessary. Turn this on only when you want the launch button to appear in OS screenshots/recordings, e.g. for documentation." : {
+      "comment" : "SettingsView: footer for the debug section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通常は不要です。ドキュメント用に起動ボタンを OS のスクショ/録画へ写したいときだけオンにします。"
+          }
+        }
+      }
+    },
+    "When you choose \"Allow\" on the next iOS prompt, your latest in-app activity is kept automatically." : {
+      "comment" : "PermissionPrimingView: explanatory body of the priming sheet.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次に表示される iOS の確認で「許可」を選ぶと、アプリ内の直前の操作を自動で保持できます。"
+          }
+        }
+      }
+    },
+    "When \"Confirm permission on launch\" is on, screen-recording permission is confirmed right after launch. (Due to iOS, a persistent always-allow in Settings isn't possible.)" : {
+      "comment" : "SettingsView: footer for the recording (permission) section.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「アプリ起動時に権限を確認する」をオンにすると、起動直後に画面収録の許可を確認します。（iOS の仕様上、設定での常時許可はできません。）"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

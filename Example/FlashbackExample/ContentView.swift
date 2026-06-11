@@ -17,14 +17,14 @@ struct ContentView: View {
     var body: some View {
         TabView {
             HomeTab(startDate: startDate)
-                .tabItem { Label("ホーム", systemImage: "house") }
+                .tabItem { Label("Home", systemImage: "house") }
             DummyListTab()
-                .tabItem { Label("リスト", systemImage: "list.bullet") }
+                .tabItem { Label("List", systemImage: "list.bullet") }
             DummyGalleryTab()
-                .tabItem { Label("ギャラリー", systemImage: "square.grid.2x2") }
+                .tabItem { Label("Gallery", systemImage: "square.grid.2x2") }
             #if DEBUG
             DebugTab()
-                .tabItem { Label("デバッグ", systemImage: "ladybug") }
+                .tabItem { Label("Debug", systemImage: "ladybug") }
             #endif
         }
         .onAppear {
@@ -109,12 +109,12 @@ private struct HomeTab: View {
                         .foregroundStyle(.tint)
                 }
 
-                Text("オブジェクトの動き／タブ切替・スクロールが録画クリップに残れば、\n直前 N 秒がちゃんと録れている証拠になる")
+                Text("If the moving object, tab switches, and scrolling show up in the recorded clip, that's proof the last N seconds were captured correctly.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                Text("端末を振る（手持ち）／ フローティングボタンを長押し（据え置き）でレポート UI を開く")
+                Text("Shake the device (handheld) or long-press the floating button (stationary) to open the report UI.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -160,13 +160,13 @@ private struct DummyListTab: View {
                         .foregroundStyle(Color(hue: Double(i % 10) / 10, saturation: 0.7, brightness: 0.9))
                         .frame(width: 30)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("アイテム \(i + 1)").font(.body)
-                        Text("ダミー行 — スクロールで動きを確認").font(.caption).foregroundStyle(.secondary)
+                        Text("Item \(i + 1)").font(.body)
+                        Text("Dummy row — scroll to see motion").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 4)
             }
-            .navigationTitle("リスト")
+            .navigationTitle("List")
         }
     }
 }
@@ -191,7 +191,7 @@ private struct DummyGalleryTab: View {
                 }
                 .padding(16)
             }
-            .navigationTitle("ギャラリー")
+            .navigationTitle("Gallery")
         }
     }
 }
@@ -213,7 +213,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentSampleReport()
                     } label: {
-                        Label("サンプル動画でトリマーを開く", systemImage: "scissors")
+                        Label("Open trimmer with a sample video", systemImage: "scissors")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -221,7 +221,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentEmptyReport()
                     } label: {
-                        Label("おやすみ状態を開く", systemImage: "moon")
+                        Label("Open the idle state", systemImage: "moon")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -229,7 +229,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentRecordingJustEnabled()
                     } label: {
-                        Label("録画オン直後を開く", systemImage: "record.circle")
+                        Label("Open the just-enabled state", systemImage: "record.circle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -237,7 +237,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentReportUnavailable()
                     } label: {
-                        Label("録画不可状態を開く", systemImage: "iphone.slash")
+                        Label("Open the recording-unavailable state", systemImage: "iphone.slash")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -245,7 +245,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentPriming()
                     } label: {
-                        Label("許可プライミングを開く", systemImage: "hand.raised")
+                        Label("Open permission priming", systemImage: "hand.raised")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -254,9 +254,9 @@ private struct DebugTab: View {
                     // After reset, tapping the FAB while recording is off (gray) shows it again.
                     Button(role: .destructive) {
                         Flashback.debugResetPriming()
-                        resetNote = "プライミング既読をリセットしました。録画オフ（グレー）の FAB をタップで再表示。"
+                        resetNote = String(localized: "Priming read flag reset. Tap the FAB while recording is off (gray) to show it again.")
                     } label: {
-                        Label("プライミング既読をリセット", systemImage: "arrow.counterclockwise")
+                        Label("Reset priming read flag", systemImage: "arrow.counterclockwise")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -264,7 +264,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentSettings()
                     } label: {
-                        Label("設定を開く", systemImage: "gearshape")
+                        Label("Open settings", systemImage: "gearshape")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -272,7 +272,7 @@ private struct DebugTab: View {
                     Button {
                         Flashback.debugPresentShakeHint()
                     } label: {
-                        Label("2回シェイク案内を開く", systemImage: "iphone.gen3.radiowaves.left.and.right")
+                        Label("Open the shake-twice hint", systemImage: "iphone.gen3.radiowaves.left.and.right")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -281,9 +281,9 @@ private struct DebugTab: View {
                     // After reset, it auto-presents again right after turning off the floating button in settings.
                     Button(role: .destructive) {
                         Flashback.debugResetShakeHint()
-                        resetNote = "シェイク案内の既読をリセットしました。設定で FAB 表示を OFF にすると再表示。"
+                        resetNote = String(localized: "Shake-hint read flag reset. Turn the FAB off in settings to show it again.")
                     } label: {
-                        Label("シェイク案内の既読をリセット", systemImage: "arrow.counterclockwise")
+                        Label("Reset shake-hint read flag", systemImage: "arrow.counterclockwise")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -304,7 +304,7 @@ private struct DebugTab: View {
                     resetNote = nil
                 }
             }
-            .navigationTitle("デバッグ")
+            .navigationTitle("Debug")
         }
     }
 }

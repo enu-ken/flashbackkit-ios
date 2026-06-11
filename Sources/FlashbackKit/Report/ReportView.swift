@@ -99,7 +99,7 @@ struct ReportView: View {
                 }
             }
             .background(FlashbackColor.background)
-            .navigationTitle("レポート")           // Back-button label for the child (settings). Center title is overridden via principal.
+            .navigationTitle(Text("Report", bundle: .module))   // Back-button label for the child (settings). Center title is overridden via principal.
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .overlay { workingOverlay }
@@ -133,21 +133,21 @@ struct ReportView: View {
         }
         ToolbarItem(placement: .cancellationAction) {
             Button(action: onCancel) { Image(systemName: "xmark") }
-                .accessibilityLabel("キャンセル")
+                .accessibilityLabel(Text("Cancel", bundle: .module))
                 .disabled(isWorking)
         }
         // Right group: share (only when a clip exists) → gear (always).
         ToolbarItemGroup(placement: .primaryAction) {
             if hasClip {
                 Button(action: share) { Image(systemName: "square.and.arrow.up") }
-                    .accessibilityLabel("共有")
+                    .accessibilityLabel(Text("Share", bundle: .module))
                     .disabled(isWorking)
             }
             Button {
                 onRequestExpand()        // Settings is cramped at half, so expand to large before pushing.
                 showingSettings = true
             } label: { Image(systemName: "gearshape") }
-                .accessibilityLabel("設定")
+                .accessibilityLabel(Text("Settings", bundle: .module))
                 .disabled(isWorking)
         }
     }
@@ -156,13 +156,13 @@ struct ReportView: View {
 
     private var titleField: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("タイトル")
+            Text("Title", bundle: .module)
                 .font(FlashbackFont.fieldLabel)
                 .foregroundStyle(FlashbackColor.label)
             TextField(
                 "",
                 text: $title,
-                prompt: Text("タイトルを入力").foregroundColor(FlashbackColor.tertiaryLabel)
+                prompt: Text("Enter a title", bundle: .module).foregroundColor(FlashbackColor.tertiaryLabel)
             )
             .focused($titleFocused)
             .font(FlashbackFont.body)
@@ -186,13 +186,13 @@ struct ReportView: View {
             placeholderBox {
                 TimeSliceMark.dormantOnSurface()
                     .frame(width: 40, height: 40)
-                Text("録画はオフです")
+                Text("Recording is off", bundle: .module)
                     .font(FlashbackFont.body)
                     .foregroundStyle(FlashbackColor.secondaryLabel)
             }
 
             // Neutral copy (avoids QA-specific "bug" wording; per README copy notes).
-            Text("オンにすると、直前の操作の録画を自動で保持します。")
+            Text("Once you turn it on, the recording of your latest actions is kept automatically.", bundle: .module)
                 .font(FlashbackFont.body)
                 .foregroundStyle(FlashbackColor.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
@@ -201,12 +201,12 @@ struct ReportView: View {
             Button(action: enableRecordingTapped) {
                 HStack(spacing: 8) {
                     Image(systemName: "record.circle")
-                    Text("録画をオンにする")
+                    Text("report.enableRecording", bundle: .module)
                 }
                 .font(FlashbackFont.body.weight(.semibold))
                 .foregroundStyle(FlashbackColor.action)
             }
-            .accessibilityLabel("録画をオンにする")
+            .accessibilityLabel(Text("report.enableRecording", bundle: .module))
         }
     }
 
@@ -220,7 +220,7 @@ struct ReportView: View {
             placeholderBox {
                 TimeSliceMark.dormantOnSurface()           // Gray dormant mark
                     .frame(width: 40, height: 40)
-                Text("この端末では画面収録を利用できません")
+                Text("Recording isn't available on this device", bundle: .module)
                     .font(FlashbackFont.body)
                     .foregroundStyle(FlashbackColor.secondaryLabel)
                     .multilineTextAlignment(.center)
@@ -229,7 +229,7 @@ struct ReportView: View {
             }
 
             // Neutral note on why it's unavailable. No CTA.
-            Text("Simulator や画面収録に対応していない環境では録画できません。実機でお試しください。")
+            Text("Recording isn't possible on the Simulator or in environments that don't support screen recording. Please try a real device.", bundle: .module)
                 .font(FlashbackFont.body)
                 .foregroundStyle(FlashbackColor.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
@@ -247,14 +247,14 @@ struct ReportView: View {
             placeholderBox {
                 TimeSliceMark.recordingOnSurface()
                     .frame(width: 40, height: 40)
-                Text("録画をオンにしました")
+                Text("Recording turned on", bundle: .module)
                     .font(FlashbackFont.body)
                     .foregroundStyle(FlashbackColor.label)
                 recordingPill
             }
 
             // No clip this time, so neutral copy conveying "from next time on".
-            Text("次回の起動操作から、直前の操作を自動で保持します。")
+            Text("From the next launch on, your recent activity is kept automatically.", bundle: .module)
                 .font(FlashbackFont.body)
                 .foregroundStyle(FlashbackColor.secondaryLabel)
                 .fixedSize(horizontal: false, vertical: true)
@@ -267,7 +267,7 @@ struct ReportView: View {
             Circle()
                 .fill(FlashbackColor.action)
                 .frame(width: 6, height: 6)
-            Text("録画中")
+            Text("Recording", bundle: .module)
                 .font(.caption.weight(.semibold))
         }
         .foregroundStyle(FlashbackColor.action)
@@ -275,7 +275,7 @@ struct ReportView: View {
         .padding(.vertical, 4)
         .background(FlashbackColor.action.opacity(0.12), in: Capsule())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("録画中")
+        .accessibilityLabel(Text("Recording", bundle: .module))
     }
 
     /// Dashed placeholder box shared by the dormant and just-enabled states (corner radius 12, dashed border).
@@ -389,7 +389,7 @@ private struct DeviceInfoSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("環境情報")
+            Text("Environment", bundle: .module)
                 .font(FlashbackFont.caption)
                 .foregroundStyle(FlashbackColor.tertiaryLabel)
             // For human reading, so no identifiers (the record-keeping displayModel lives on the log side).
@@ -424,7 +424,11 @@ private struct DeviceInfoSection: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isAdded ? "タイトルから\(value(field))を除去" : "タイトルへ\(value(field))を追加")
+        .accessibilityLabel(
+            isAdded
+                ? String(localized: "Remove \(value(field)) from the title", bundle: .module)
+                : String(localized: "Add \(value(field)) to the title", bundle: .module)
+        )
     }
 
     /// Strip the title's trailing "｜…｜" to recover the base, toggle `added`, then rebuild.

@@ -28,12 +28,12 @@ struct PermissionPrimingView: View {
                 .frame(width: 46, height: 46)
                 .padding(.bottom, 16)
 
-            Text("画面収録をオンにします")
+            Text("Turn screen recording on", bundle: .module)
                 .font(.title3.weight(.bold))
                 .foregroundStyle(FlashbackColor.label)
                 .multilineTextAlignment(.center)
 
-            Text("次に表示される iOS の確認で「許可」を選ぶと、アプリ内の直前の操作を自動で保持できます。")
+            Text("When you choose \"Allow\" on the next iOS prompt, your latest in-app activity is kept automatically.", bundle: .module)
                 .font(.subheadline)
                 .foregroundStyle(FlashbackColor.secondaryLabel)
                 .multilineTextAlignment(.center)
@@ -46,32 +46,32 @@ struct PermissionPrimingView: View {
 
             // CTA: filled orange (the action that enables recording).
             Button(action: onProceed) {
-                Text("許可へ進む")
+                Text("Proceed to allow", bundle: .module)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(FlashbackColor.onAction)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .background(FlashbackColor.action, in: RoundedRectangle(cornerRadius: 12))
             }
-            .accessibilityLabel("許可へ進む")
-            .accessibilityHint("iOS の画面収録の確認が表示されます")
+            .accessibilityLabel(Text("Proceed to allow", bundle: .module))
+            .accessibilityHint(Text("iOS asks to confirm screen recording", bundle: .module))
 
             // "Later": muted text button.
             Button(action: onLater) {
-                Text("あとで")
+                Text("Later", bundle: .module)
                     .font(.callout)
                     .foregroundStyle(FlashbackColor.secondaryLabel)
                     .frame(maxWidth: .infinity)
                     .frame(height: 28)
             }
             .padding(.top, 10)
-            .accessibilityLabel("あとで")
+            .accessibilityLabel(Text("Later", bundle: .module))
 
             // Hint that the next tap surfaces the OS prompt (mono, muted).
             HStack(spacing: 5) {
                 Image(systemName: "info.circle")
                     .font(.system(size: 12))
-                Text("タップすると iOS の確認が表示されます")
+                Text("Tap to launch the OS prompt", bundle: .module)
                     .font(FlashbackFont.mono)
             }
             .foregroundStyle(FlashbackColor.tertiaryLabel)

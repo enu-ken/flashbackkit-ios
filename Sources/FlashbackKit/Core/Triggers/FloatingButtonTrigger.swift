@@ -200,7 +200,7 @@ final class FloatingButtonView: UIView {
         layer.shadowOffset = CGSize(width: 0, height: 4)
         alpha = idleAlpha
         isAccessibilityElement = true
-        accessibilityLabel = "Flashback を起動"
+        accessibilityLabel = String(localized: "Launch Flashback", bundle: .module)
 
         setUpMarkLayers()
         applyAppearance()                          // also sets accessibilityHint per state here
@@ -325,7 +325,9 @@ final class FloatingButtonView: UIView {
         CATransaction.commit()
         setNeedsLayout()                            // redraw chevron position/direction for the tuck state
         if !isTucked {
-            accessibilityHint = recordingEnabled ? "長押しでレポートを起動" : "タップで録画を開始"
+            accessibilityHint = recordingEnabled
+                ? String(localized: "Long-press to launch a report.", bundle: .module)
+                : String(localized: "Tap to start recording", bundle: .module)
         }
     }
 
@@ -352,7 +354,9 @@ final class FloatingButtonView: UIView {
             }
         }
         if !isTucked {
-            accessibilityHint = on ? "長押しでレポートを起動" : "タップで録画を開始"
+            accessibilityHint = on
+                ? String(localized: "Long-press to launch a report.", bundle: .module)
+                : String(localized: "Tap to start recording", bundle: .module)
         }
     }
 
@@ -556,7 +560,7 @@ final class FloatingButtonView: UIView {
                 let peekX = saved.edgeIsTrailing ? bounds.width + half - Self.peek : -half + Self.peek
                 center = CGPoint(x: peekX, y: y)
                 alpha = idleAlpha
-                accessibilityHint = "タップで表示"
+                accessibilityHint = String(localized: "Tap to show", bundle: .module)
                 applyAppearance()
             } else {
                 center = CGPoint(x: saved.edgeIsTrailing ? maxX : minX, y: y)
@@ -760,7 +764,7 @@ final class FloatingButtonView: UIView {
         tuckedAtMaxX = toMaxEdge
         savePosition(edgeIsTrailing: toMaxEdge, y: targetY, tucked: true, in: parent)
         applyAppearance()                       // color stays per recording state (tuck only changes shape/alpha)
-        accessibilityHint = "タップで表示"
+        accessibilityHint = String(localized: "Tap to show", bundle: .module)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         // Tucking uses a shallower bounce (higher damping) so it "settles" into place.
         spring(to: CGPoint(x: targetX, y: targetY), velocity: velocity, damping: 0.78, alpha: idleAlpha)

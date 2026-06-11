@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "FlashbackKit",
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v16)
     ],
@@ -19,7 +20,8 @@ let package = Package(
             // ブランド2色（Slate / Action-Orange）の Color Set。`Color(_:bundle:.module)` で参照する。
             // それ以外の色は semantic system color を使うため、ここに資産は増やさない。
             resources: [
-                .process("Resources/Media.xcassets")
+                .process("Resources/Media.xcassets"),
+                .process("Resources/Localizable.xcstrings")
             ]
         ),
         .testTarget(

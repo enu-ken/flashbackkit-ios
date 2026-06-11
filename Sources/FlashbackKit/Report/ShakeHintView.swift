@@ -24,7 +24,7 @@ struct ShakeHintView: View {
                     .frame(width: 132, height: 132)
 
                 // Copy variant C: no heading, body only, always states "2 times" explicitly.
-                Text("端末を 2 回振ると、レポートを起動できます。")
+                Text("Shake the device twice to launch a report.", bundle: .module)
                     .font(.subheadline)
                     .foregroundStyle(FlashbackColor.secondaryLabel)
                     .multilineTextAlignment(.center)
@@ -41,7 +41,7 @@ struct ShakeHintView: View {
             // OK: iOS alert convention (0.5pt separator on top + borderless systemBlue).
             Divider()
             Button(action: onDismiss) {
-                Text("OK")
+                Text("OK", bundle: .module)
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(FlashbackColor.settingsLink)
                     .frame(maxWidth: .infinity)

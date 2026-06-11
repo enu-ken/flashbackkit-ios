@@ -138,7 +138,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
         SegmentRingWriter.purgeTempFiles()                 // clean up leftovers from last run
 
         guard isAvailable else {                           // Simulator / unsupported (Sim pinned false above)
-            FlashbackLog.lifecycle.info("画面録画は利用不可（Simulator か未対応環境）。clip なしで継続。")
+            FlashbackLog.lifecycle.info("Screen recording unavailable (Simulator or unsupported environment). Continuing without a clip.")
             onCaptureStarted?(false)                       // couldn't turn recording on
             return                                         // don't throw; export side reports recordingUnavailable
         }
@@ -180,7 +180,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let error {
-                    FlashbackLog.lifecycle.error("startCapture 失敗: \(error.localizedDescription, privacy: .public)")
+                    FlashbackLog.lifecycle.error("startCapture failed: \(error.localizedDescription, privacy: .public)")
                     self.isCapturing = false
                     self.captureConfirmed = false
                     self.ring?.teardown()
@@ -188,7 +188,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
                     self.onCaptureStarted?(false)
                     self.onRecordingStateChanged?(false)   // confirmed: recording off (denied etc.)
                 } else {
-                    FlashbackLog.lifecycle.info("startCapture 開始成功（録画オン）")
+                    FlashbackLog.lifecycle.info("startCapture started successfully (recording on)")
                     self.captureConfirmed = true           // now confirmed "recording" (post-permission)
                     self.onCaptureStarted?(true)           // one-shot (for justEnabled)
                     self.onRecordingStateChanged?(true)    // confirmed: recording on (UI sync)
@@ -300,7 +300,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// recovery (keeping the session alive would be rejected by the idempotency guard).
     private func interruptForExternalCapture(reason: String) {
         guard isCapturing else { return }
-        FlashbackLog.lifecycle.info("\(reason, privacy: .public)。録画を停止し凍ったバッファを破棄（割り込み）。")
+        FlashbackLog.lifecycle.info("\(reason, privacy: .public). Stopping recording and discarding the frozen buffer (interruption).")
         interruptedBySystem = true                         // mark for auto-resume on recovery
         teardownCapture(notify: true)                      // confirmed off (FAB gray) + stop session + discard ring
         onExternalCaptureInterrupt?(true)                  // interrupt toast
@@ -311,7 +311,7 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     private func attemptResume(reason: String) {
         guard interruptedBySystem, wantsRecording, !isCapturing, !Self.screenIsCaptured() else { return }
         interruptedBySystem = false
-        FlashbackLog.lifecycle.info("\(reason, privacy: .public)。録画を自動再開。")
+        FlashbackLog.lifecycle.info("\(reason, privacy: .public). Auto-resuming recording.")
         startBuffering(seconds: desiredBufferSeconds)
         onExternalCaptureInterrupt?(false)                 // resume toast
     }

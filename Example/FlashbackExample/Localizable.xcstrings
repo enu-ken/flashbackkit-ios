@@ -1,0 +1,101 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Home" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ホーム" } }
+      }
+    },
+    "List" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "リスト" } }
+      }
+    },
+    "Gallery" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ギャラリー" } }
+      }
+    },
+    "Debug" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デバッグ" } }
+      }
+    },
+    "If the moving object, tab switches, and scrolling show up in the recorded clip, that's proof the last N seconds were captured correctly." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "オブジェクトの動き／タブ切替・スクロールが録画クリップに残れば、\n直前 N 秒がちゃんと録れている証拠になる" } }
+      }
+    },
+    "Shake the device (handheld) or long-press the floating button (stationary) to open the report UI." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "端末を振る（手持ち）／ フローティングボタンを長押し（据え置き）でレポート UI を開く" } }
+      }
+    },
+    "Item %lld" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイテム %lld" } }
+      }
+    },
+    "Dummy row — scroll to see motion" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ダミー行 — スクロールで動きを確認" } }
+      }
+    },
+    "Open trimmer with a sample video" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サンプル動画でトリマーを開く" } }
+      }
+    },
+    "Open the idle state" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "おやすみ状態を開く" } }
+      }
+    },
+    "Open the just-enabled state" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "録画オン直後を開く" } }
+      }
+    },
+    "Open the recording-unavailable state" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "録画不可状態を開く" } }
+      }
+    },
+    "Open permission priming" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "許可プライミングを開く" } }
+      }
+    },
+    "Reset priming read flag" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "プライミング既読をリセット" } }
+      }
+    },
+    "Priming read flag reset. Tap the FAB while recording is off (gray) to show it again." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "プライミング既読をリセットしました。録画オフ（グレー）の FAB をタップで再表示。" } }
+      }
+    },
+    "Open settings" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "設定を開く" } }
+      }
+    },
+    "Open the shake-twice hint" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "2回シェイク案内を開く" } }
+      }
+    },
+    "Reset shake-hint read flag" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "シェイク案内の既読をリセット" } }
+      }
+    },
+    "Shake-hint read flag reset. Turn the FAB off in settings to show it again." : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "シェイク案内の既読をリセットしました。設定で FAB 表示を OFF にすると再表示。" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

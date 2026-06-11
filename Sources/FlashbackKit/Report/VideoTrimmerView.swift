@@ -79,9 +79,9 @@ struct VideoTrimmerView: View {
                     .onTapGesture { if duration > 0 { togglePlay() } }
                     .accessibilityElement(children: .ignore)
                     .accessibilityAddTraits(.isButton)
-                    .accessibilityLabel("プレビュー")
-                    .accessibilityValue(isPlaying ? "再生中" : "一時停止中")
-                    .accessibilityHint("タップで再生 / 一時停止")
+                    .accessibilityLabel(Text("Preview", bundle: .module))
+                    .accessibilityValue(isPlaying ? Text("Playing", bundle: .module) : Text("Paused", bundle: .module))
+                    .accessibilityHint(Text("Tap to play / pause", bundle: .module))
                     .accessibilityAction { if duration > 0 { togglePlay() } }
                 Spacer(minLength: 0)
             }
@@ -96,7 +96,7 @@ struct VideoTrimmerView: View {
                         .background(FlashbackColor.action, in: Circle())
                 }
                 .disabled(duration == 0)
-                .accessibilityLabel(isPlaying ? "一時停止" : "再生")
+                .accessibilityLabel(isPlaying ? Text("Pause", bundle: .module) : Text("Play", bundle: .module))
 
                 Text(rangeLabel)
                     .font(FlashbackFont.timecode)
@@ -450,8 +450,8 @@ private struct FilmstripTrimmer: View {
                 .gesture(captureGesture(usable: usable))
                 .accessibilityElement()
                 .accessibilityAddTraits(.isButton)
-                .accessibilityLabel("この瞬間を画像で保存")
-                .accessibilityHint("再生ヘッドの位置の画面を画像として共有します。左右ドラッグで位置調整。")
+                .accessibilityLabel(Text("Capture this moment as an image", bundle: .module))
+                .accessibilityHint(Text("Drag left or right to adjust, then share the frame at the playhead as an image.", bundle: .module))
                 .accessibilityAction { onCapture?() }
         }
         .frame(height: captureTrackHeight)
@@ -524,7 +524,7 @@ private struct FilmstripTrimmer: View {
             .frame(width: handleHitWidth, height: height)   // wide transparent hit area (visual is the centered handleWidth)
             .contentShape(Rectangle())
             .offset(x: x - handleHitWidth / 2)
-            .accessibilityLabel(isStart ? "開始位置" : "終了位置")
+            .accessibilityLabel(isStart ? Text("Start", bundle: .module) : Text("End", bundle: .module))
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .named("strip"))
                     .onChanged { value in
@@ -571,7 +571,7 @@ private struct FilmstripTrimmer: View {
                     }
                     .onEnded { _ in onScrubEnded() }
             )
-            .accessibilityLabel("再生位置")
+            .accessibilityLabel(Text("Playback position", bundle: .module))
             .accessibilityValue(timeLabel(playhead))
             .accessibilityAdjustableAction { direction in
                 let target = direction == .increment ? playhead + 1 : playhead - 1

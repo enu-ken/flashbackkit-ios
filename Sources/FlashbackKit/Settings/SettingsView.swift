@@ -17,7 +17,7 @@ struct SettingsView: View {
             permissionSection
             debugSection
         }
-        .navigationTitle("設定")
+        .navigationTitle(Text("Settings", bundle: .module))
         .navigationBarTitleDisplayMode(.inline)
         // Settings.app look: override the parent ReportView's orange tint with blue
         // (back/links).
@@ -29,12 +29,14 @@ struct SettingsView: View {
     private var displaySection: some View {
         Section {
             // Pin the toggle to green (don't inherit the view's blue tint).
-            Toggle("画面上に起動ボタンを表示", isOn: $store.floatingButtonVisible)
+            Toggle(isOn: $store.floatingButtonVisible) {
+                Text("Show a launch button on screen", bundle: .module)
+            }
                 .tint(FlashbackColor.success)
         } header: {
-            Text("表示")
+            Text("Display", bundle: .module)
         } footer: {
-            Text("画面上に起動ボタンを表示し、そこからレポートを起動できます。（端末を2回振っても起動できます。）")
+            Text("Shows a launch button on screen so you can launch a report from it. (You can also launch by shaking the device twice.)", bundle: .module)
         }
     }
 
@@ -47,15 +49,17 @@ struct SettingsView: View {
             // excluded). Default off = hidden. Disabling the exclusion makes the button
             // appear in OS screenshots/recordings, but it still never appears in Flashback's
             // own clip (a separate overlay window that ReplayKit doesn't capture).
-            Toggle("起動ボタンを OS のスクリーンショット・録画に写す", isOn: Binding(
+            Toggle(isOn: Binding(
                 get: { !store.excludesButtonFromCapture },
                 set: { store.excludesButtonFromCapture = !$0 }
-            ))
+            )) {
+                Text("Show the launch button in OS screenshots and recordings", bundle: .module)
+            }
             .tint(FlashbackColor.success)
         } header: {
-            Text("デバッグ")
+            Text("Debug", bundle: .module)
         } footer: {
-            Text("通常は不要です。ドキュメント用に起動ボタンを OS のスクショ/録画へ写したいときだけオンにします。")
+            Text("Usually unnecessary. Turn this on only when you want the launch button to appear in OS screenshots/recordings, e.g. for documentation.", bundle: .module)
         }
     }
 
@@ -68,7 +72,7 @@ struct SettingsView: View {
                     store.retentionSeconds = seconds
                 } label: {
                     HStack {
-                        Text("\(seconds) 秒")
+                        Text("\(seconds) sec", bundle: .module)
                             .foregroundStyle(FlashbackColor.label)
                         Spacer()
                         if store.retentionSeconds == seconds {
@@ -82,9 +86,9 @@ struct SettingsView: View {
                 .accessibilityAddTraits(store.retentionSeconds == seconds ? [.isSelected] : [])
             }
         } header: {
-            Text("保持する録画の長さ")
+            Text("Recording length to keep", bundle: .module)
         } footer: {
-            Text("選択した秒数の録画を常に保持し、発火時に書き出します。長いほどメモリを使います。")
+            Text("Keep the selected number of seconds of recording at all times, and write it out when triggered. Longer uses more memory.", bundle: .module)
         }
     }
 
@@ -94,19 +98,21 @@ struct SettingsView: View {
         Section {
             // Whether to prompt for permission on launch (default off). Pin the toggle to
             // green (don't inherit the blue tint).
-            Toggle("アプリ起動時に権限を確認する", isOn: $store.promptOnLaunch)
+            Toggle(isOn: $store.promptOnLaunch) {
+                Text("Confirm permission on launch", bundle: .module)
+            }
                 .tint(FlashbackColor.success)
             HStack {
-                Text("画面収録")
+                Text("Screen recording", bundle: .module)
                     .foregroundStyle(FlashbackColor.label)
                 Spacer()
                 // Show whether recording is actually running (the confirmed state
                 // isRecordingActive, not environment availability). Only "recording" once
                 // permission is confirmed; @Published auto-updates after the response.
                 if store.isRecordingActive {
-                    Text("録画中").foregroundStyle(FlashbackColor.success)
+                    Text("Recording", bundle: .module).foregroundStyle(FlashbackColor.success)
                 } else {
-                    Text("停止中").foregroundStyle(FlashbackColor.secondaryLabel)
+                    Text("Stopped", bundle: .module).foregroundStyle(FlashbackColor.secondaryLabel)
                 }
             }
             // While recording, show a stop action (red). When off and the device can
@@ -116,7 +122,7 @@ struct SettingsView: View {
                 Button {
                     store.stopRecording()
                 } label: {
-                    Text("録画を停止する")
+                    Text("Stop recording", bundle: .module)
                         .foregroundStyle(FlashbackColor.danger)         // red (turn-off action)
                         .contentShape(Rectangle())
                 }
@@ -126,15 +132,15 @@ struct SettingsView: View {
                 Button {
                     store.retryRecording()
                 } label: {
-                    Text("録画を有効にする")
+                    Text("settings.enableRecording", bundle: .module)
                         .foregroundStyle(FlashbackColor.settingsLink)   // blue
                         .contentShape(Rectangle())
                 }
             }
         } header: {
-            Text("録画")
+            Text("section.recording", bundle: .module)
         } footer: {
-            Text("「アプリ起動時に権限を確認する」をオンにすると、起動直後に画面収録の許可を確認します。（iOS の仕様上、設定での常時許可はできません。）")
+            Text("When \"Confirm permission on launch\" is on, screen-recording permission is confirmed right after launch. (Due to iOS, a persistent always-allow in Settings isn't possible.)", bundle: .module)
         }
     }
 }

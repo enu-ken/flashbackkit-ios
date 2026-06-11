@@ -36,7 +36,7 @@ final class FlashbackController {
         // check the SDK's UI on the Simulator (the Example app sets it true).
         #if targetEnvironment(simulator)
         guard configuration.runsOnSimulator else {
-            FlashbackLog.lifecycle.info("Simulator では起動しません（runsOnSimulator=false）。実機でお試しください。")
+            FlashbackLog.lifecycle.info("Not starting on the Simulator (runsOnSimulator=false). Please try a real device.")
             return
         }
         #endif
@@ -105,7 +105,9 @@ final class FlashbackController {
         // Notify, via a dedicated toast, of interruption/auto-resume from external capture
         // (screen recording, mirroring, etc.).
         recorder.onExternalCaptureInterrupt = { [weak self] interrupted in
-            self?.presenter.showInfo(interrupted ? "画面収録のため録画を中断しました" : "録画を再開しました")
+            self?.presenter.showInfo(interrupted
+                ? String(localized: "Recording paused for screen recording", bundle: .module)
+                : String(localized: "Resuming recording", bundle: .module))
         }
 
         // Wire up shake immediately. The FAB is managed separately for dynamic add/remove.
@@ -207,16 +209,16 @@ final class FlashbackController {
         recorder.onCaptureStarted = { [weak self] started in
             guard let self else { return }
             self.recorder.onCaptureStarted = nil          // One-shot
-            FlashbackLog.lifecycle.info("retryRecording 結果: \(started ? "成功（justEnabled へ遷移）" : "失敗（おやすみ維持）", privacy: .public)")
+            FlashbackLog.lifecycle.info("retryRecording result: \(started ? "succeeded (transition to just-enabled)" : "failed (stay dormant)", privacy: .public)")
             if started {
                 self.settingsStore?.recordingJustEnabled = true
                 // Start feedback. From an FAB wake the toast is visible; via the ReportView's
                 // "turn recording on" it appears behind the sheet (justEnabled is in front), so it
                 // doesn't feel duplicated.
-                self.presenter.showInfo("録画を開始しました")
+                self.presenter.showInfo(String(localized: "Recording started", bundle: .module))
             }
         }
-        FlashbackLog.lifecycle.info("retryRecording 実行（再ダイアログ可否は iOS 版依存）")
+        FlashbackLog.lifecycle.info("retryRecording running (whether the dialog re-appears is iOS-version dependent)")
         recorder.startBuffering(seconds: configuration.bufferSeconds)
     }
 
@@ -253,7 +255,7 @@ final class FlashbackController {
         // straight to the idle guidance). Hidden if the press is interrupted (early release / drag).
         fab.onPressStart = { [weak self] in
             guard let self, self.recorder.isRecording else { return }
-            self.presenter.showProgress("記憶を辿っています…")
+            self.presenter.showProgress(String(localized: "Retracing memory…", bundle: .module))
         }
         // Cancel only the early in-progress toast (not the info hint), so a short tap's
         // "long-press to launch a report" hint isn't dismissed by the immediate finger lift.
@@ -262,7 +264,7 @@ final class FlashbackController {
         // the user doesn't think to long-press. First time per device, priming precedes the OS prompt.
         fab.onWake = { [weak self] in self?.wakeRecordingFromFloatingButton() }
         // Short tap while recording is on (orange) = hint to long-press instead of a dead no-op.
-        fab.onShortTapHint = { [weak self] in self?.presenter.showInfo("長押しでレポート起動") }
+        fab.onShortTapHint = { [weak self] in self?.presenter.showInfo(String(localized: "Long-press to launch a report", bundle: .module)) }
         fab.start()
         floatingButtonTrigger = fab
         detectors.append(fab)
@@ -350,13 +352,15 @@ final class FlashbackController {
     }
 
     /// DEBUG only: shows the in-progress toast (to check its appearance).
+    /// Uses the same localized string as the production path so demo screenshots match.
     func debugShowProgressToast() {
-        presenter.showProgress("記憶を辿っています…")
+        presenter.showProgress(String(localized: "Retracing memory…", bundle: .module))
     }
 
     /// DEBUG only: shows the failure toast (retry just closes the toast).
+    /// Uses the same localized string as the production path so demo screenshots match.
     func debugShowFailureToast() {
-        presenter.showFailure("記憶の書き出しに失敗しました") { [weak self] in
+        presenter.showFailure(String(localized: "Couldn't write out the memory", bundle: .module)) { [weak self] in
             self?.presenter.hideToast()
         }
     }
@@ -389,7 +393,7 @@ final class FlashbackController {
             present(rawClip: nil)
             return
         }
-        presenter.showProgress("記憶を辿っています…")
+        presenter.showProgress(String(localized: "Retracing memory…", bundle: .module))
         Task {
             do {
                 let clipURL = try await recorder.exportBufferedClip()
@@ -400,8 +404,8 @@ final class FlashbackController {
                 presenter.hideToast()
                 present(rawClip: nil)
             } catch {
-                FlashbackLog.report.error("クリップ書き出しに失敗: \(error.localizedDescription, privacy: .public)")
-                presenter.showFailure("記憶の書き出しに失敗しました") { [weak self] in
+                FlashbackLog.report.error("Failed to export clip: \(error.localizedDescription, privacy: .public)")
+                presenter.showFailure(String(localized: "Couldn't write out the memory", bundle: .module)) { [weak self] in
                     self?.handleTrigger()                      // Retry = redo from the export.
                 }
             }
@@ -469,7 +473,7 @@ final class FlashbackController {
                 outputName: outputName
             )
         } catch {
-            FlashbackLog.report.error("クリップ書き出しに失敗（フル尺で継続）: \(error.localizedDescription, privacy: .public)")
+            FlashbackLog.report.error("Failed to export clip (continuing with full length): \(error.localizedDescription, privacy: .public)")
             return clipURL
         }
         #else

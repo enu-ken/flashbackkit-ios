@@ -158,7 +158,7 @@ final class FlashbackPresenter {
     /// Defers install (no active scene) and waits for a scene connection/activation notification.
     private func observeSceneConnectionForDeferredInstall() {
         guard sceneObserver == nil else { return }                 // already waiting
-        FlashbackLog.lifecycle.info("overlay 設置を保留：アクティブな UIWindowScene が未接続。シーン接続後に自動設置する（SceneDelegate アプリで didFinishLaunching から start() を呼んだ場合など）。")
+        FlashbackLog.lifecycle.info("Deferring overlay install: no active UIWindowScene connected yet. Will install automatically once a scene connects (e.g. when start() is called from didFinishLaunching in a SceneDelegate app).")
         sceneObserver = SceneConnectionObserver { [weak self] in self?.tryDeferredInstall() }
     }
 
@@ -172,7 +172,7 @@ final class FlashbackPresenter {
         guard let scene = Self.activeScene() else { return }       // not available yet (wait for next notification)
         finishInstall(in: scene)
         sceneObserver = nil                                        // stop observing (deinit removes the observer)
-        FlashbackLog.lifecycle.info("シーン接続を検知し overlay を自動設置（保留分）。")
+        FlashbackLog.lifecycle.info("Detected a scene connection; installing the deferred overlay automatically.")
         onDeferredInstall?()
     }
 
@@ -495,7 +495,7 @@ final class FlashbackPresenter {
             SettingsView(store: store)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("閉じる") { [weak self] in self?.dismissReport() }
+                        Button(String(localized: "Close", bundle: .module)) { [weak self] in self?.dismissReport() }
                     }
                 }
         }
@@ -946,13 +946,13 @@ private struct StatusOverlay: View {
                     Text(message)
                     Button(action: onRetry) {
                         HStack(spacing: 2) {
-                            Text("再試行")
+                            Text("Retry", bundle: .module)
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 10, weight: .semibold))
                         }
                         .foregroundStyle(FlashbackColor.settingsLink)   // blue
                     }
-                    .accessibilityLabel("再試行")
+                    .accessibilityLabel(Text("Retry", bundle: .module))
                 }
             case .info(let message):
                 ToastCapsule {
