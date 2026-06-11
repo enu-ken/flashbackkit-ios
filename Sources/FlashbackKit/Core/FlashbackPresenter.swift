@@ -76,6 +76,14 @@ final class FlashbackPresenter {
     /// backdrop ramp is driven entirely off this (mask saturates at the half height), so the
     /// `.large` max value is no longer needed for the scrim.
     private var reportHalfDetentHeight: CGFloat?
+    /// The report sheet's presentation controller, weakly captured when the display link starts.
+    ///
+    /// The backdrop tick reads the live sheet height through this — *not* through `reportHost` —
+    /// so it keeps tracking the sheet's fall even after a programmatic dismiss has already nil'd
+    /// `reportHost` (so the mask fades out in step with the sheet instead of snapping to clear).
+    /// Weak: UIKit owns the presentation controller for the duration of the dismissal animation,
+    /// and once it is torn down the tick simply no-ops.
+    private weak var reportPresentationController: UIPresentationController?
     /// Generation counter for auto-dismissing info toasts, so a stale timer never
     /// clears a newer toast.
     private var infoToastGeneration = 0
@@ -270,6 +278,11 @@ final class FlashbackPresenter {
         }
         reportDetent = detent
         reportHost = host
+        // Wire the scrim tap to the *same* close path as the ✕ button (`dismissReport`), so tapping the
+        // dim around the sheet dismisses it — matching the OS-standard "tap the dim to dismiss" gesture.
+        // The window's delegate gate ensures this only fires on the scrim (not sheet / FAB / toast), and
+        // `dismissReport`'s guard makes a tap during an in-flight dismiss a no-op (rapid-tap guard).
+        (window as? PassthroughWindow)?.onScrimTap = { [weak self] in self?.dismissReport() }
         // Window starts clear (no sheet on screen yet). As the sheet slides in to the half height
         // the backdrop fades from clear up to its steady scrim level and then holds flat through
         // half⇄large, driven by the display link started below.
@@ -300,6 +313,11 @@ final class FlashbackPresenter {
     /// for free.
     private func startReportBackdropTracking() {
         guard backdropDisplayLink == nil else { return }
+        // Capture the presentation controller now (weakly) so the tick can read the live sheet
+        // height independently of `reportHost`. A programmatic dismiss nils `reportHost` up front,
+        // but the sheet keeps animating away; reading through this captured reference lets the mask
+        // follow the sheet's fall and fade out (instead of clearing the instant `reportHost` is nil).
+        reportPresentationController = reportHost?.presentationController
         let proxy = DisplayLinkProxy { [weak self] in self?.updateReportBackdrop() }
         let link = CADisplayLink(target: proxy, selector: #selector(DisplayLinkProxy.tick))
         link.add(to: .main, forMode: .common)             // .common so it keeps firing during tracking/scroll run loops
@@ -315,8 +333,12 @@ final class FlashbackPresenter {
         backdropDisplayLink?.invalidate()
         backdropDisplayLink = nil
         backdropLinkProxy = nil
+        reportPresentationController = nil
         reportHalfDetentHeight = nil
         window?.backgroundColor = .clear
+        // Disarm the scrim tap whenever tracking stops (every dismiss path funnels here), so a stray
+        // tap can't fire after the report is gone.
+        (window as? PassthroughWindow)?.onScrimTap = nil
     }
 
     /// One display-link tick: reads the sheet's live presented-view frame and paints the overlay
@@ -331,8 +353,12 @@ final class FlashbackPresenter {
     /// (fade-in), half⇄large holds it flat (constant), and swipe-dismiss drops the sheet back below
     /// half so it fades out — all automatically.
     private func updateReportBackdrop() {
+        // Read the live height through the weakly-captured presentation controller (not `reportHost`),
+        // so the mask keeps tracking the sheet's fall during a programmatic dismiss — which nils
+        // `reportHost` up front — and fades out with it. If the controller (or its container / presented
+        // view) has been torn down, this no-ops, leaving the window untouched until `stop` clears it.
         guard let window,
-              let presentationController = reportHost?.presentationController,
+              let presentationController = reportPresentationController,
               let containerView = presentationController.containerView,
               let presentedView = presentationController.presentedView,
               let half = reportHalfDetentHeight,
@@ -362,14 +388,22 @@ final class FlashbackPresenter {
         reportDetent?.isExpanded = true                   // reflect immediately without waiting for the delegate (enlarges the preview)
     }
 
-    /// Dismisses the report input UI.
+    /// Dismisses the report input UI (the ✕ button's close path, and the scrim-tap close path).
+    ///
+    /// The backdrop display link is deliberately left **running** through the dismissal animation and
+    /// stopped only in the completion handler. The scrim's alpha is a pure function of the sheet's live
+    /// height, so as UIKit animates the sheet back down past the half detent the mask fades out in step
+    /// with it — instead of snapping to clear the instant dismissal starts (the old behavior, which made
+    /// the mask vanish abruptly while the sheet was still on screen). The tick reads the sheet through
+    /// the weakly-captured `reportPresentationController`, so nilling `reportHost` here doesn't break the
+    /// follow. Swipe-dismiss is unaffected: it never enters this path and is already smooth (the link
+    /// stays live until `presentationControllerDidDismiss` → `stopReportBackdropTracking`).
     func dismissReport() {
-        // Stop the tracker and clear the window first so it doesn't flash black behind a sheet
-        // animating away. Swipe-dismiss (which bypasses this path) is covered by
-        // `presentationControllerDidDismiss` → `stopReportBackdropTracking`.
-        stopReportBackdropTracking()
-        reportHost?.dismiss(animated: true)
-        reportHost = nil
+        guard let host = reportHost else { return }       // re-entrancy / double-dismiss guard (already dismissing or gone)
+        reportHost = nil                                  // drop the strong ref up front; the link tracks via reportPresentationController
+        host.dismiss(animated: true) { [weak self] in
+            self?.stopReportBackdropTracking()            // clear the mask only once the sheet has finished animating away
+        }
         reportSheetDelegate = nil
         reportDetent = nil
     }
@@ -631,6 +665,38 @@ private extension CGFloat {
 /// window → secure-root structure (the iPad passthrough bug lives at this layer); not public API.
 @MainActor
 final class PassthroughWindow: UIWindow {
+    /// Invoked when the report scrim (the masked area *around* the sheet) is tapped, to mirror the
+    /// OS-standard "tap the dim to dismiss" behavior. Set by the presenter while a report is up and
+    /// cleared on dismiss; `nil` (or no scrim painted) means scrim taps do nothing. The presenter
+    /// routes this through the same close path as the ✕ button (`dismissReport`).
+    ///
+    /// Setting it (first non-nil assignment) lazily installs the gated tap recognizer, so no
+    /// initializer override is needed (keeps the inherited `init(frame:)` / `init(windowScene:)`).
+    var onScrimTap: (() -> Void)? {
+        didSet { if onScrimTap != nil { installScrimTapRecognizerIfNeeded() } }
+    }
+
+    /// Recognizes a tap landing on the scrim itself. The delegate gate (`gestureRecognizer(_:shouldReceive:)`)
+    /// only lets it through when `hitTest` resolved the touch to the window itself — i.e. the dim around
+    /// the sheet — so taps on the sheet content, FAB, or toast never fire it. Lazily installed once.
+    private var scrimTapRecognizer: UITapGestureRecognizer?
+
+    /// Installs a single window-level tap recognizer that drives `onScrimTap`, gated by the delegate
+    /// so it fires only on the scrim. Installed on the window (not a subview) so it sees taps in the
+    /// empty area above/around the sheet that `hitTest` returns the window for. Idempotent.
+    private func installScrimTapRecognizerIfNeeded() {
+        guard scrimTapRecognizer == nil else { return }
+        let tap = UITapGestureRecognizer(target: self, action: #selector(handleScrimTap))
+        tap.delegate = self
+        tap.cancelsTouchesInView = false      // never interfere with sheet / FAB / toast touches
+        addGestureRecognizer(tap)
+        scrimTapRecognizer = tap
+    }
+
+    @objc private func handleScrimTap() {
+        onScrimTap?()
+    }
+
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let hit = super.hitTest(point, with: event)
         // Hit the window itself = empty area → pass through to the host (unless a scrim is up; see
@@ -680,6 +746,23 @@ final class PassthroughWindow: UIWindow {
     private func passthroughOrScrim() -> UIView? {
         if let alpha = backgroundColor?.cgColor.alpha, alpha > 0.01 { return self }
         return nil
+    }
+}
+
+extension PassthroughWindow: UIGestureRecognizerDelegate {
+    /// Gates the scrim tap so it fires *only* on the dim around the sheet, matching the OS-standard
+    /// "tap the dim to dismiss" gesture.
+    ///
+    /// The recognizer is allowed to receive a touch only when `touch.view === self` — i.e. when
+    /// `hitTest` resolved the touch to the window itself, which it does precisely for an empty point
+    /// while the scrim is painted (see `passthroughOrScrim`: alpha > ~0 → returns the window). On the
+    /// sheet content, FAB, or toast, `hitTest` returns those concrete views, so `touch.view` is never
+    /// `self` and the tap is rejected. When no scrim is up, an empty point hit-tests to `nil` (pass
+    /// through), so again `touch.view` isn't `self` and nothing fires. A `nil` `onScrimTap` (no report
+    /// presented) also rejects, so the gesture is inert outside the report.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === scrimTapRecognizer, onScrimTap != nil else { return false }
+        return touch.view === self
     }
 }
 

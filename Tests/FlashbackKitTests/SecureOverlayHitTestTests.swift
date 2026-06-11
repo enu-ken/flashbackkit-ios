@@ -220,5 +220,72 @@ final class SecureOverlayHitTestTests: XCTestCase {
         XCTAssertTrue(isButtonOrDescendant,
                       "scrim 中の button 上 hit が button（の子孫）でない: \(String(describing: hit.map { type(of: $0) }))")
     }
+
+    // MARK: - scrim タップ dismiss（OS 標準 dim タップに寄せたゲート）
+
+    /// `onScrimTap` を立てると scrim タップ用の `UITapGestureRecognizer` が window に1個だけ装着され、
+    /// nil に戻しても付け外しの暴発が無い（idempotent 装着）こと。
+    func testScrimTapRecognizerInstalledOnlyWhenHandlerSet() {
+        let size = CGSize(width: 393, height: 852)
+        let (window, _) = makeOverlay(size: size)
+        defer { window.isHidden = true }
+
+        let tapCountBefore = (window.gestureRecognizers ?? []).filter { $0 is UITapGestureRecognizer }.count
+        XCTAssertEqual(tapCountBefore, 0, "ハンドラ未設定で既に tap recognizer が付いている")
+
+        window.onScrimTap = {}
+        let tapsAfterSet = (window.gestureRecognizers ?? []).compactMap { $0 as? UITapGestureRecognizer }
+        XCTAssertEqual(tapsAfterSet.count, 1, "onScrimTap 設定後に tap recognizer が1個になっていない")
+
+        // 再設定しても二重装着しない（present のたびに付け直しても1個のまま）。
+        window.onScrimTap = {}
+        XCTAssertEqual((window.gestureRecognizers ?? []).filter { $0 is UITapGestureRecognizer }.count, 1,
+                       "onScrimTap 再設定で recognizer が二重装着された")
+
+        // nil に戻しても recognizer は残る（再 present 時に再利用）。delegate ゲートで暴発はしない。
+        window.onScrimTap = nil
+        XCTAssertEqual((window.gestureRecognizers ?? []).filter { $0 is UITapGestureRecognizer }.count, 1,
+                       "onScrimTap=nil で recognizer の数が変わった")
+    }
+
+    /// delegate ゲート `gestureRecognizer(_:shouldReceive:)` の真理値表を検証する。
+    /// - `touch.view === window`（= scrim として hitTest が window 自身を返した点）かつ
+    ///   `onScrimTap != nil` のときだけ true。
+    /// - シート/FAB/トースト上（touch.view が window でない）や、ハンドラ未設定では false。
+    func testScrimTapGateAcceptsOnlyWindowSelfTouch() {
+        let size = CGSize(width: 393, height: 852)
+        let (window, _) = makeOverlay(size: size)
+        defer { window.isHidden = true }
+
+        window.onScrimTap = {}
+        guard let tap = (window.gestureRecognizers ?? []).compactMap({ $0 as? UITapGestureRecognizer }).first,
+              let delegate = window as UIGestureRecognizerDelegate? else {
+            return XCTFail("scrim tap recognizer / delegate が取得できない")
+        }
+
+        // touch.view == window（scrim 直下）→ 受ける。
+        let onScrim = StubTouch(stubView: window)
+        XCTAssertTrue(delegate.gestureRecognizer?(tap, shouldReceive: onScrim) ?? false,
+                      "scrim（touch.view==window）のタップを受けていない")
+
+        // touch.view == 別の view（シート内容/FAB/トースト相当）→ 受けない。
+        let other = UIView()
+        let onContent = StubTouch(stubView: other)
+        XCTAssertFalse(delegate.gestureRecognizer?(tap, shouldReceive: onContent) ?? true,
+                       "コンテンツ上（touch.view!=window）のタップを誤って受けている")
+
+        // ハンドラ未設定（onScrimTap==nil）→ scrim 上でも受けない（report 外で不活性）。
+        window.onScrimTap = nil
+        XCTAssertFalse(delegate.gestureRecognizer?(tap, shouldReceive: onScrim) ?? true,
+                       "onScrimTap=nil でも scrim タップを受けている（report 外で発火しうる）")
+    }
+}
+
+/// `touch.view` を差し替えられる `UITouch` スタブ（`shouldReceive` ゲート検証用）。
+/// 実 `UITouch` は `view` を直接設定できないため、サブクラスで上書きする。
+private final class StubTouch: UITouch {
+    private let stubView: UIView
+    init(stubView: UIView) { self.stubView = stubView; super.init() }
+    override var view: UIView? { stubView }
 }
 #endif
