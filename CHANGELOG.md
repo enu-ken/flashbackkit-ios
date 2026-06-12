@@ -7,6 +7,43 @@ the [Releases](https://github.com/kensuke242424/flashbackkit-ios/releases) page.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions
 are pre-1.0 and bump the minor for each release.
 
+## [0.9.0] - 2026-06-12
+
+### Added
+- **English localization** — the SDK UI now ships in English and Japanese via String
+  Catalogs (English is the source language; the existing Japanese strings are preserved
+  verbatim). The language follows the host app's declared localizations — see
+  README › Localization for the one integration note.
+- The report sheet can now be dismissed by tapping the dimmed background (scrim), matching
+  the standard sheet behavior.
+
+### Changed
+- The report sheet's backdrop is now fully SDK-owned (#20): a scrim that tracks the sheet's
+  real position frame-by-frame — it fades in with the slide-in, holds the same density at
+  half and full height, follows drags continuously, and fades out on dismiss.
+
+### Fixed
+- **#20** — expanding the report sheet to full height shrank the system dimming mask into a
+  "card", revealing the host app around it (the SDK presents from a transparent overlay
+  window, which has no opaque backdrop of its own). Resolved by the custom scrim above.
+- Expanding the report sheet to full height no longer forces white status-bar icons over a
+  light host app.
+- **Rotation mid-recording produced distorted (anamorphically squashed) clips.** ReplayKit
+  freezes the buffer dimensions at capture start and squeezes the rotated UI into them, so
+  on a detected rotation the capture session is now safely restarted in the new orientation —
+  clips come out upright with correct aspect (sub-second gap; the pre-rotation buffer is
+  discarded; devices that signal rotation via the sample's orientation attachment skip the
+  restart and are oriented losslessly instead). See README › Known constraints.
+- The floating button repositions itself on rotation and window resize (iPad multitasking)
+  instead of being stranded out of bounds; after rotating back, it returns to its exact
+  saved spot.
+- iPad — taps on the host app were swallowed by the SDK's overlay window, leaving the host
+  UI unresponsive; separately, the trimmer's play button was unresponsive because a
+  filmstrip thumbnail's hit area inflated over it (`.clipped()` clips drawing only, not the
+  backing view's frame).
+- iPhone SE / small screens — the half-height report sheet now has a point floor, keeping
+  the trimmer strip, capture button, and title peek visible (larger screens are unchanged).
+
 ## [0.8.0] - 2026-06-10
 
 ### Changed
@@ -92,6 +129,7 @@ are pre-1.0 and bump the minor for each release.
   trim + title it, and hand a `FlashbackReport` to your `onReport` callback. Zero dependencies,
   iOS 16+, Swift 6.
 
+[0.9.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.9.0
 [0.8.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.8.0
 [0.7.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.7.0
 [0.6.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.6.0

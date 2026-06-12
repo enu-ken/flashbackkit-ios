@@ -48,6 +48,7 @@ reproduce it?" round-trips.
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Localization](#localization)
 - [Configuration](#configuration)
 - [The `onReport` handoff](#the-onreport-handoff)
 - [Triggers](#triggers)
@@ -109,7 +110,7 @@ reproduce it?" round-trips.
 ## Installation
 
 > [!NOTE]
-> Latest release: **`0.8.0`** — pre-1.0, so the public API may change before a stable
+> Latest release: **`0.9.0`** — pre-1.0, so the public API may change before a stable
 > 1.0. Pin an exact version if you need stability.
 
 ### Swift Package Manager (Xcode)
@@ -120,13 +121,13 @@ reproduce it?" round-trips.
 https://github.com/kensuke242424/flashbackkit-ios.git
 ```
 
-Set **Dependency Rule = Up to Next Major Version** from `0.8.0` (or pin **Exact** `0.8.0`
+Set **Dependency Rule = Up to Next Major Version** from `0.9.0` (or pin **Exact** `0.9.0`
 while the API is pre-1.0).
 
 ### Package.swift
 
 ```swift
-.package(url: "https://github.com/kensuke242424/flashbackkit-ios.git", from: "0.8.0")
+.package(url: "https://github.com/kensuke242424/flashbackkit-ios.git", from: "0.9.0")
 ```
 
 ```swift
@@ -186,6 +187,15 @@ session, or before a sensitive screen), call `Flashback.stop()` — the counterp
 > [!IMPORTANT]
 > `report.clipURL` points to a temporary file. If you need to keep it, copy or upload it
 > **inside** the `onReport` callback.
+
+## Localization
+
+The SDK UI ships in **English and Japanese** (English is the source language).
+
+iOS resolves a package's language against the **host app's declared localizations**, not
+the device language alone — if your app doesn't declare Japanese, the SDK UI stays
+English even for Japanese users. To get Japanese, add `ja` to your app's localizations
+(Xcode → project → **Info → Localizations → +**). No SDK-side configuration is needed.
 
 ## Configuration
 
