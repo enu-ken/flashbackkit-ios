@@ -38,6 +38,13 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// Whether paused by an interruption (OS recording / mirroring etc.). Auto-resume on
     /// recovery only fires while this flag is set.
     private var interruptedBySystem = false
+    /// Whether capture was paused because the app entered the background (#21 avoidance).
+    /// Deliberately separate from `interruptedBySystem`: the external-capture machinery
+    /// (`capturedDidChange` → `attemptResume`) must not consume a background pause while
+    /// still backgrounded — `startCapture` fails before the app is active again, and the
+    /// path's resume toast would misreport a normal lifecycle round-trip (#22). Cleared by
+    /// the didBecomeActive restart.
+    private var pausedForBackground = false
     /// Last requested retention seconds, kept so auto-resume restarts with the same value.
     private var desiredBufferSeconds: TimeInterval = 0
 
@@ -129,9 +136,12 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidEnterBackground),
             name: UIApplication.didEnterBackgroundNotification, object: nil)
+        // Restart on didBecomeActive, NOT willEnterForeground: RPScreenRecorder.startCapture
+        // needs a foreground-active app. Called between willEnterForeground and active it can
+        // fail, leaving recording off despite the intent to resume (#22).
         NotificationCenter.default.addObserver(
-            self, selector: #selector(appWillEnterForeground),
-            name: UIApplication.willEnterForegroundNotification, object: nil)
+            self, selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification, object: nil)
         #if DEBUG
         // Diagnostic: snapshot the recording state at the moment of foreground resume
         // after being idle (DEBUG only).
@@ -321,6 +331,10 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// intent remains, no double-start is in flight, and external capture is gone.
     private func attemptResume(reason: String) {
         guard interruptedBySystem, wantsRecording, !isCapturing, !Self.screenIsCaptured() else { return }
+        // Never resume while inactive/backgrounded: startCapture needs a foreground-active app,
+        // so starting here would fail, burn the flag, and show a resume toast for a dead start
+        // (#22). appDidBecomeActive retries this path once the app is active again.
+        guard UIApplication.shared.applicationState == .active else { return }
         interruptedBySystem = false
         FlashbackLog.lifecycle.info("\(reason, privacy: .public). Auto-resuming recording.")
         startBuffering(seconds: desiredBufferSeconds)
@@ -341,17 +355,31 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     @objc private func appDidEnterBackground() {
         guard isCapturing else { return }
         FlashbackLog.lifecycle.info("App entered background. Stopping capture to avoid ReplayKit auto-resume (the buffer restarts empty on return).")
-        interruptedBySystem = true                         // mark for auto-resume on foreground
+        pausedForBackground = true                         // resume on didBecomeActive (silent path)
         teardownCapture(notify: true)                      // confirmed off + stop session + discard ring
     }
 
-    /// Quietly restart capture on foreground return when recording intent remains. Mirrors
-    /// `attemptResume` minus the resume toast (no interrupt toast was shown on the way out).
-    @objc private func appWillEnterForeground() {
-        guard interruptedBySystem, wantsRecording, !isCapturing, !Self.screenIsCaptured() else { return }
-        interruptedBySystem = false
-        FlashbackLog.lifecycle.info("App returning to foreground. Restarting capture (fresh buffer).")
-        startBuffering(seconds: desiredBufferSeconds)
+    /// Quietly restart capture once the app is **active** again (recording intent remaining).
+    /// Mirrors `attemptResume` minus the resume toast — no interrupt toast was shown on the
+    /// way out, and a lifecycle round-trip shouldn't announce itself (#22). Also the retry
+    /// point for an external-capture interruption that recovered while the app wasn't active
+    /// (`attemptResume` defers to here via its applicationState guard).
+    @objc private func appDidBecomeActive() {
+        if pausedForBackground {
+            pausedForBackground = false
+            if Self.screenIsCaptured() {
+                // External capture (OS recording / mirroring) started while backgrounded:
+                // hand over to the external-capture machinery so its end resumes as usual
+                // (with the interruption toast semantics that situation deserves).
+                interruptedBySystem = true
+            } else if wantsRecording, !isCapturing {
+                FlashbackLog.lifecycle.info("App became active. Restarting capture (fresh buffer).")
+                startBuffering(seconds: desiredBufferSeconds)
+            }
+            return
+        }
+        // Not a background pause: pick up an external-capture resume deferred while inactive.
+        attemptResume(reason: "External capture cleared while the app was inactive")
     }
 
     /// Whether the screen is being captured externally (OS screen recording / AirPlay / mirroring).
