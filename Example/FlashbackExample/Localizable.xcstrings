@@ -3,97 +3,552 @@
   "strings" : {
     "Home" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ホーム" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホーム"
+          }
+        }
       }
     },
     "List" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "リスト" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リスト"
+          }
+        }
       }
     },
     "Gallery" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ギャラリー" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ギャラリー"
+          }
+        }
       }
     },
     "Debug" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "デバッグ" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバッグ"
+          }
+        }
       }
     },
     "If the moving object, tab switches, and scrolling show up in the recorded clip, that's proof the last N seconds were captured correctly." : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "オブジェクトの動き／タブ切替・スクロールが録画クリップに残れば、\n直前 N 秒がちゃんと録れている証拠になる" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オブジェクトの動き／タブ切替・スクロールが録画クリップに残れば、\n直前 N 秒がちゃんと録れている証拠になる"
+          }
+        }
       }
     },
     "Shake the device (handheld) or long-press the floating button (stationary) to open the report UI." : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "端末を振る（手持ち）／ フローティングボタンを長押し（据え置き）でレポート UI を開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末を振る（手持ち）／ フローティングボタンを長押し（据え置き）でレポート UI を開く"
+          }
+        }
       }
     },
     "Item %lld" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アイテム %lld" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アイテム %lld"
+          }
+        }
       }
     },
     "Dummy row — scroll to see motion" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ダミー行 — スクロールで動きを確認" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダミー行 — スクロールで動きを確認"
+          }
+        }
       }
     },
     "Open trimmer with a sample video" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サンプル動画でトリマーを開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプル動画でトリマーを開く"
+          }
+        }
       }
     },
     "Open the idle state" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "おやすみ状態を開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "おやすみ状態を開く"
+          }
+        }
       }
     },
     "Open the just-enabled state" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "録画オン直後を開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画オン直後を開く"
+          }
+        }
       }
     },
     "Open the recording-unavailable state" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "録画不可状態を開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画不可状態を開く"
+          }
+        }
       }
     },
     "Open permission priming" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "許可プライミングを開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "許可プライミングを開く"
+          }
+        }
       }
     },
     "Reset priming read flag" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "プライミング既読をリセット" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライミング既読をリセット"
+          }
+        }
       }
     },
     "Priming read flag reset. Tap the FAB while recording is off (gray) to show it again." : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "プライミング既読をリセットしました。録画オフ（グレー）の FAB をタップで再表示。" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライミング既読をリセットしました。録画オフ（グレー）の FAB をタップで再表示。"
+          }
+        }
       }
     },
     "Open settings" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "設定を開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を開く"
+          }
+        }
       }
     },
     "Open the shake-twice hint" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "2回シェイク案内を開く" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "2回シェイク案内を開く"
+          }
+        }
       }
     },
     "Reset shake-hint read flag" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "シェイク案内の既読をリセット" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シェイク案内の既読をリセット"
+          }
+        }
       }
     },
     "Shake-hint read flag reset. Turn the FAB off in settings to show it again." : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "シェイク案内の既読をリセットしました。設定で FAB 表示を OFF にすると再表示。" } }
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シェイク案内の既読をリセットしました。設定で FAB 表示を OFF にすると再表示。"
+          }
+        }
+      }
+    },
+    "Recording cost monitor" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画コストモニター"
+          }
+        }
+      }
+    },
+    "%.0f MB · CPU %.1f%% · ring %.1f MB" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%.0f MB · CPU %.1f%% · リング %.1f MB"
+          }
+        }
+      }
+    },
+    "Tap for charts and the load generator" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タップでチャートと負荷ジェネレータ"
+          }
+        }
+      }
+    },
+    "Performance" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パフォーマンス"
+          }
+        }
+      }
+    },
+    "Recording ON — ring buffer running" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画 ON — リングバッファ動作中"
+          }
+        }
+      }
+    },
+    "Recording OFF — toggle via the floating button to compare" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "録画 OFF — フローティングボタンで切り替えて比較"
+          }
+        }
+      }
+    },
+    "Memory" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモリ"
+          }
+        }
+      }
+    },
+    "CPU (app)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU（アプリ）"
+          }
+        }
+      }
+    },
+    "Ring on disk" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リング（ディスク）"
+          }
+        }
+      }
+    },
+    "Frame pacing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フレームペーシング"
+          }
+        }
+      }
+    },
+    "peak %.0f MB" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ピーク %.0f MB"
+          }
+        }
+      }
+    },
+    "avg %.1f %%" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "平均 %.1f %%"
+          }
+        }
+      }
+    },
+    "%d segment files" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セグメント %d 本"
+          }
+        }
+      }
+    },
+    "worst gap %.0f ms" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大ギャップ %.0f ms"
+          }
+        }
+      }
+    },
+    "Memory footprint (MB)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモリフットプリント（MB）"
+          }
+        }
+      }
+    },
+    "CPU — app total, % of one core" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CPU — アプリ合計（1コア比 %）"
+          }
+        }
+      }
+    },
+    "Screen load (frame supply)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面負荷（フレーム供給）"
+          }
+        }
+      }
+    },
+    "Off (static)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オフ（静止）"
+          }
+        }
+      }
+    },
+    "Light" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "軽"
+          }
+        }
+      }
+    },
+    "Heavy" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重"
+          }
+        }
+      }
+    },
+    "static — no frames for ReplayKit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静止 — ReplayKit にフレームは流れません"
+          }
+        }
+      }
+    },
+    "ReplayKit only delivers frames while the screen changes — a static screen costs almost nothing. Heavy redraws a full-width canvas every frame ≒ worst case while recording." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ReplayKit は画面に変化があるときだけフレームを供給します。静止画面のコストはほぼゼロ。「重」は毎フレーム全面を再描画 ≒ 録画中の最悪ケースです。"
+          }
+        }
+      }
+    },
+    "How to read the numbers" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数値の読み方"
+          }
+        }
+      }
+    },
+    "• Memory: ring segments live on disk, not in RAM — the recording delta is roughly the encoder session and stays flat over time." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• メモリ: リングのセグメントは RAM ではなくディスク上。録画中の増分はおおむねエンコーダセッション分で、時間が経っても増えません。"
+          }
+        }
+      }
+    },
+    "• Ring on disk: plateaus at the retention window (the ring drops old segments) — an hour of recording stores no more than the last N seconds." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• リング（ディスク）: 保持窓で頭打ちになります（古いセグメントは順次破棄）。1時間録画しても保存されるのは直近 N 秒分だけです。"
+          }
+        }
+      }
+    },
+    "• CPU: frame capture runs in replayd (out of process). What you see here is the in-process cost: sample callbacks + the hardware H.264 encoder." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• CPU: フレームキャプチャ自体は replayd（プロセス外）で動きます。ここに出るのはアプリ内コスト＝サンプルコールバック＋ハードウェア H.264 エンコーダ分です。"
+          }
+        }
+      }
+    },
+    "• Frame pacing: spikes in the worst frame gap while recording would indicate UI jank caused by the SDK." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• フレームペーシング: 録画中に最大フレームギャップが跳ねる場合、SDK 起因の UI カクつきを意味します。"
+          }
+        }
+      }
+    },
+    "thermal: nominal" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発熱: 正常"
+          }
+        }
+      }
+    },
+    "thermal: fair" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発熱: やや上昇"
+          }
+        }
+      }
+    },
+    "thermal: serious" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発熱: 高"
+          }
+        }
+      }
+    },
+    "thermal: critical" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "発熱: 危険"
+          }
+        }
+      }
+    },
+    "Reset" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リセット"
+          }
+        }
+      }
+    },
+    "Export CSV" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CSVを書き出す"
+          }
+        }
+      }
+    },
+    "Soak comparison (answering \"what does it cost?\")" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放置比較（「結局いくらかかるの？」に答える）"
+          }
+        }
+      }
+    },
+    "• Fix the load, tap reset, leave it ~10 min with recording OFF, export the CSV. Then turn recording ON, reset, and repeat. The ON−OFF delta is the SDK's net cost." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• 負荷を固定 → リセット → 録画 OFF のまま約10分放置 → CSV を書き出し。次に録画 ON にしてリセットし、同じことを繰り返します。ON と OFF の差分が SDK の正味コストです。"
+          }
+        }
+      }
+    },
+    "• Auto-lock is disabled while this panel is visible, so unattended soaks keep running." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• このパネル表示中は画面の自動ロックを無効化するので、放置計測が途切れません。"
+          }
+        }
       }
     }
   },

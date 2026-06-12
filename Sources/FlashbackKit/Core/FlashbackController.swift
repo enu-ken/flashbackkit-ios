@@ -354,6 +354,11 @@ final class FlashbackController {
         settingsStore?.hasSeenShakeHint = false
     }
 
+    /// DEBUG only: whether recording is confirmed on. Lets the Example's performance monitor
+    /// tag metric samples with the recording state (parsing the status-line string would be
+    /// brittle).
+    var debugIsRecording: Bool { recorder.isRecording }
+
     /// DEBUG only: one-line recording status (to observe interrupt-detection behavior on a device).
     func debugRecordingStatusLine() -> String {
         let age = recorder.debugFrameAge.map { String(format: "%.1f", $0) } ?? "—"

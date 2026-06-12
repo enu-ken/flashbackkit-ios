@@ -89,8 +89,19 @@ struct ContentView: View {
 /// Home screen with launch status, a continuous animation, and debug entry points.
 private struct HomeTab: View {
     let startDate: Date
+    #if DEBUG
+    /// Auto-pushes the performance panel right after launch (`FLASHBACK_PERF_DEMO=1`,
+    /// for Simulator screenshots — same pattern as the other env-var demos).
+    @State private var showPerfPanel = ProcessInfo.processInfo.environment["FLASHBACK_PERF_DEMO"] != nil
+    #endif
 
     var body: some View {
+        NavigationStack {
+            scrollContent
+        }
+    }
+
+    private var scrollContent: some View {
         ScrollView {
             VStack(spacing: 24) {
                 Text("FlashbackKit Example")
@@ -120,6 +131,11 @@ private struct HomeTab: View {
                     .multilineTextAlignment(.center)
 
                 #if DEBUG
+                // Live recording-cost summary (memory / CPU / ring disk) answering "what does
+                // always-on buffering cost?" at a glance; taps through to the full panel.
+                PerfSummaryCard()
+                    .padding(.horizontal, 24)
+
                 // On-device HUD for observing recording state (interruption-detection behavior). Updates every 0.25s.
                 TimelineView(.periodic(from: startDate, by: 0.25)) { _ in
                     Text(Flashback.debugRecordingStatusLine())
@@ -133,6 +149,11 @@ private struct HomeTab: View {
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity)
         }
+        #if DEBUG
+        .navigationDestination(isPresented: $showPerfPanel) {
+            PerformancePanel()
+        }
+        #endif
     }
 
     /// Formats elapsed time as mm:ss.SSS.

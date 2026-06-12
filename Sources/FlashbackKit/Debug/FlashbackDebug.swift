@@ -87,6 +87,13 @@ public extension Flashback {
         FlashbackController.shared.debugRecordingStatusLine()
     }
 
+    /// DEBUG-only: whether recording is confirmed on (post-permission). The Example's
+    /// performance monitor uses this to correlate metric samples with the recording state.
+    @MainActor
+    static var debugIsRecording: Bool {
+        FlashbackController.shared.debugIsRecording
+    }
+
     /// DEBUG-only: present a toast (in-progress / failure) (visual check).
     /// - Parameter kind: `"failure"` for the failure toast, otherwise the in-progress toast.
     @MainActor

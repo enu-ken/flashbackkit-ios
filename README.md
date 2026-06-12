@@ -45,6 +45,7 @@ reproduce it?" round-trips.
 
 - [Highlights](#highlights)
 - [How it works](#how-it-works)
+- [Performance](#performance)
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -99,6 +100,41 @@ reproduce it?" round-trips.
         ▼
  onReport(FlashbackReport)  ──►  your pipeline (AI / Slack / Jira / backend)
 ```
+
+## Performance
+
+The obvious question for an always-on ring buffer: *what does it cost?* Measured on an
+iPhone 15 Pro (iOS 26.5): two 10-minute soaks under a **worst-case screen load** (a
+full-screen canvas redrawn every frame — the hardest possible content for H.264),
+identical except recording OFF vs ON:
+
+| | Recording OFF | Recording ON | Net cost of the SDK |
+|---|---|---|---|
+| Memory footprint (median) | 77 MB | 94 MB | **+17 MB** |
+| Memory trend over 10 min | +0.15 MB/min | +0.07 MB/min | **flat — no leak** |
+| CPU, % of one core (mean) | 12.6 % | 19.3 % | **+6.7 %** |
+| UI frame rate (median) | 58.7 fps | 58.6 fps | **unchanged** |
+| Frame gaps > 100 ms | 0 / 609 samples | 0 / 612 samples | **zero jank** |
+| Disk (ring segments) | 0 MB | plateaus at ~75 MB / 9 files | **bounded at the retention window** |
+| Thermal state | nominal | nominal | unchanged |
+
+Why it stays this cheap:
+
+- **The ring lives on disk, not in RAM** — short mp4 segments in `tmp`, the oldest deleted
+  as new ones are written. Disk plateaus at the retention window no matter how long you
+  record. (75 MB is the worst-case-content figure; typical app screens compress far
+  smaller.)
+- **Frame capture runs in replayd, out of process.** The in-process cost is the sample
+  callback plus the hardware H.264 encoder session.
+- **ReplayKit delivers frames only while the screen changes** — on a static screen the
+  cost is near zero. The figures above are the worst case, not the typical case.
+- **Overload sheds clip quality, not app performance**: if the encoder falls behind,
+  frames are dropped from the clip — the host app is never back-pressured.
+
+Reproduce it yourself: the Example app's Home tab has a **performance monitor** (live
+memory/CPU charts colored by recording state, a screen-load generator, per-second CSV
+export, and auto-lock disabled while visible for unattended soaks). See
+[Example app](#example-app).
 
 ## Requirements
 
@@ -384,6 +420,10 @@ These are platform realities the design works *around*, not bugs:
 
 `Example/FlashbackExample.xcodeproj` is a host app that exercises the full loop.
 
+- **Performance monitor** — the Home tab card opens live charts of memory / CPU / ring
+  disk / frame pacing with a screen-load generator and CSV export, for measuring the
+  recording cost on your own device (the numbers in [Performance](#performance) were
+  captured with it).
 - **Simulator** — builds as-is (no signing). ReplayKit capture doesn't work on the
   Simulator, so recording is disabled and the loop runs without a clip. The Example opts
   in via `runsOnSimulator: true` so you can still see the UI — your own app, with the
