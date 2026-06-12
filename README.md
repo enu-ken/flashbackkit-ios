@@ -32,14 +32,10 @@ reproduce it?" round-trips.
 > improving reproducibility, over architectural purity. The public API may change before
 > a 1.0 release.
 
-<details>
-<summary>UI preview (design mockups)</summary>
-
-<br>
-
-![FlashbackKit screens](docs/screenshots.png)
-
-</details>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/ring-buffer-dark.svg">
+  <img src="docs/ring-buffer-light.svg" alt="Timeline: FlashbackKit records continuously into a ring — older segments are already deleted, and when a bug happens the last N seconds already exist, exported as a clip of the moments before the bug" width="100%">
+</picture>
 
 ## Highlights
 
@@ -60,21 +56,19 @@ reproduce it?" round-trips.
 
 ## How it works
 
-```
- trigger (shake twice / floating button)
-        │
-        ▼
- export the last N seconds from the ring buffer
-        │
-        ▼
- Report UI  ──►  preview + trim  +  one-line title  +  auto device info
-        │
-        ▼
- Share (↑)  ──►  trims, bakes metadata, opens the system share sheet
-        │         (save to Photos / Files / AirDrop / other apps)
-        ▼
- onReport(FlashbackReport)  ──►  your pipeline (AI / Slack / Jira / backend)
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/flow-dark.svg">
+  <img src="docs/flow-light.svg" alt="Flow: trigger (shake twice / floating button) → export the last N seconds from the ring → report UI with preview, trim, title and device info → system share sheet → onReport into your pipeline (AI / Slack / Jira / backend)" width="100%">
+</picture>
+
+What testers see — the report sheet with the trimmer, the one-time permission priming,
+and the in-app settings:
+
+<p align="center">
+  <img src="docs/screen-report.png" width="32%" alt="Report sheet: clip preview, filmstrip trimmer with handles, screenshot capture button, and a title field">
+  <img src="docs/screen-priming.png" width="32%" alt="One-time priming sheet explaining the screen-recording permission before the iOS prompt">
+  <img src="docs/screen-settings.png" width="32%" alt="In-app settings: launch button visibility, recording length to keep, permission on launch, and debug toggles">
+</p>
 
 ## Performance
 
