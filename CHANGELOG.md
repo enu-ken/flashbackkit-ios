@@ -7,6 +7,20 @@ the [Releases](https://github.com/kensuke242424/flashbackkit-ios/releases) page.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions
 are pre-1.0 and bump the minor for each release.
 
+## [0.11.0] - 2026-06-12
+
+### Fixed
+- **#22** — returning to the foreground showed a "Resuming recording" toast but recording
+  stayed off (0.10.0 regression). The background pause reused the external-capture
+  interruption flag, so stopping the SDK's own session flipped `UIScreen.isCaptured` and
+  fired the external-capture auto-resume path while still backgrounded: its toast appeared,
+  `startCapture` failed (the app wasn't active yet), and the consumed flag left the real
+  foreground handler with nothing to do. The background pause now has its own flag, capture
+  restarts silently on `didBecomeActive` (when `startCapture` can succeed), and the
+  auto-resume path never runs while the app isn't active. If OS screen recording /
+  mirroring began while backgrounded, the SDK hands over to the usual interruption flow
+  (toast included) once active.
+
 ## [0.10.0] - 2026-06-12
 
 ### Fixed
@@ -146,6 +160,8 @@ are pre-1.0 and bump the minor for each release.
   trim + title it, and hand a `FlashbackReport` to your `onReport` callback. Zero dependencies,
   iOS 16+, Swift 6.
 
+[0.11.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.11.0
+[0.10.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.10.0
 [0.9.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.9.0
 [0.8.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.8.0
 [0.7.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.7.0
