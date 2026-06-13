@@ -5,7 +5,7 @@ Thanks for your interest! FlashbackKit is a small, dependency-free iOS SDK
 
 ## Reporting issues
 
-- File bugs and ideas in [Issues](https://github.com/kensuke242424/flashbackkit-ios/issues).
+- File bugs and ideas in [Issues](https://github.com/enu-ken/flashbackkit-ios/issues).
 - For **recording behavior**, please note whether you saw it on a **physical device** or
   the **Simulator** — ReplayKit in-app capture does not actually produce frames on the
   Simulator, so much of the recording path can only be verified on device.

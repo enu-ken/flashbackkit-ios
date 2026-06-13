@@ -2,7 +2,7 @@
 
 All notable changes to FlashbackKit are documented here. This project is **pre-1.0
 (PoC / WIP)**; the public API may change before a stable 1.0. Full release notes live on
-the [Releases](https://github.com/kensuke242424/flashbackkit-ios/releases) page.
+the [Releases](https://github.com/enu-ken/flashbackkit-ios/releases) page.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions
 are pre-1.0 and bump the minor for each release.
@@ -182,14 +182,14 @@ are pre-1.0 and bump the minor for each release.
   trim + title it, and hand a `FlashbackReport` to your `onReport` callback. Zero dependencies,
   iOS 16+, Swift 6.
 
-[0.11.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.11.0
-[0.10.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.10.0
-[0.9.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.9.0
-[0.8.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.8.0
-[0.7.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.7.0
-[0.6.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.6.0
-[0.5.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.5.0
-[0.4.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.4.0
-[0.3.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.3.0
-[0.2.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.2.0
-[0.1.0]: https://github.com/kensuke242424/flashbackkit-ios/releases/tag/0.1.0
+[0.11.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.11.0
+[0.10.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.10.0
+[0.9.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.9.0
+[0.8.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.8.0
+[0.7.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.7.0
+[0.6.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.6.0
+[0.5.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.5.0
+[0.4.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.4.0
+[0.3.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.3.0
+[0.2.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.2.0
+[0.1.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.1.0

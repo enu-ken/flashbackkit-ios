@@ -115,13 +115,13 @@ Requires **iOS 16+** and **Swift 6 / Xcode 16+**. No dependencies.
 **Xcode** — File → Add Package Dependencies… →
 
 ```
-https://github.com/kensuke242424/flashbackkit-ios.git
+https://github.com/enu-ken/flashbackkit-ios.git
 ```
 
 **Package.swift**:
 
 ```swift
-.package(url: "https://github.com/kensuke242424/flashbackkit-ios.git", from: "0.12.0")
+.package(url: "https://github.com/enu-ken/flashbackkit-ios.git", from: "0.12.0")
 ```
 
 ```swift
@@ -282,7 +282,7 @@ host app's responsibility, because only the host knows what's sensitive.
   to iCloud; keep that in mind for sensitive content.
 
 Found a security issue (e.g. a clip leak)? Please report it **privately** via GitHub's
-["Report a vulnerability"](https://github.com/kensuke242424/flashbackkit-ios/security/advisories/new)
+["Report a vulnerability"](https://github.com/enu-ken/flashbackkit-ios/security/advisories/new)
 flow rather than filing a public issue.
 
 ## Known constraints

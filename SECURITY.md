@@ -15,7 +15,7 @@ reproduce on the latest version before reporting.
 
 **Please do not open a public issue for security problems.**
 
-Report privately via GitHub's **[Report a vulnerability](https://github.com/kensuke242424/flashbackkit-ios/security/advisories/new)**
+Report privately via GitHub's **[Report a vulnerability](https://github.com/enu-ken/flashbackkit-ios/security/advisories/new)**
 (repository **Security** tab → **Advisories** → *Report a vulnerability*). Private
 vulnerability reporting is enabled for this repository.
 
