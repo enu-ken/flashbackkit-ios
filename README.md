@@ -183,8 +183,8 @@ Flashback.start(
 > `promptOnLaunch`, `bufferSeconds`, floating-button visibility, and the secure-entry
 > guard are also adjustable by the tester in the in-app settings; the in-app choice is
 > **persisted and wins over the config default after first launch**. With the default
-> `runsOnSimulator: false`, `start()` is a complete no-op on the Simulator — and even
-> opted in, recording doesn't work there (test recording on a device).
+> `runsOnSimulator: false`, `start()` is a complete no-op on the Simulator; even opted
+> in, recording can't run there — see [Known constraints](#known-constraints) for why.
 
 ### Localization
 
@@ -289,6 +289,11 @@ Platform realities the design works *around*, not bugs:
 - **ReplayKit can't record retroactively** → an always-on ring buffer is the only way to
   have the "before" — hence the permission prompt and the costs measured in
   [Performance](#performance).
+- **Recording can't run on the iOS Simulator** → ReplayKit in-app capture needs a real
+  device (the `replayd` daemon and the hardware H.264 encoder). On the Simulator it fakes
+  success — `startCapture` returns no error yet delivers zero frames — so the SDK reports
+  recording unavailable there. Test recording on a device; the Simulator is only for
+  inspecting the SDK's UI and flow (see [Example app](#example-app)).
 - **Rotation restarts the capture session** → ReplayKit freezes the buffer dimensions at
   capture start, and on most devices a later rotation changes nothing it reports (the
   upright UI just gets squeezed into the frozen buffer). On a detected rotation the SDK
