@@ -13,18 +13,25 @@ import FlashbackKit
 /// - Tab switches / per-tab scrolling … screen transitions show up clearly in the clip
 struct ContentView: View {
     @State private var startDate = Date()
+    /// Selected tab. In DEBUG the initial tab can be set via `FLASHBACK_TAB`
+    /// (home/activity/gallery/debug) for deterministic screenshots / promo capture.
+    @State private var selectedTab = Self.initialTab
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             HomeTab(startDate: startDate)
                 .tabItem { Label("Home", systemImage: "house") }
-            DummyListTab()
-                .tabItem { Label("List", systemImage: "list.bullet") }
-            DummyGalleryTab()
+                .tag(0)
+            ActivityTab()
+                .tabItem { Label("Activity", systemImage: "bell") }
+                .tag(1)
+            GalleryTab()
                 .tabItem { Label("Gallery", systemImage: "square.grid.2x2") }
+                .tag(2)
             #if DEBUG
             DebugTab()
                 .tabItem { Label("Debug", systemImage: "ladybug") }
+                .tag(3)
             #endif
         }
         .onAppear {
@@ -43,9 +50,32 @@ struct ContentView: View {
                 }
             )
             #if DEBUG
+            #if targetEnvironment(simulator)
+            // ReplayKit emits no frames on the Simulator, so feed a rendered clip of the app's own
+            // Gallery screen. This lets the real FAB long-press → report → trim/share path be
+            // exercised (and filmed) on the Simulator, the same way it works on a device.
+            Flashback.enableSimulatorMockRecording {
+                try await MockClipRenderer.makeActivityBugClip()
+            }
+            #endif
             Self.presentDemosFromEnvironment()
             #endif
         }
+    }
+
+    /// Initial tab index. 0 (Home) in Release; in DEBUG, overridable via `FLASHBACK_TAB`
+    /// (activity/gallery/debug) for deterministic screenshots and promo capture.
+    private static var initialTab: Int {
+        #if DEBUG
+        switch ProcessInfo.processInfo.environment["FLASHBACK_TAB"] {
+        case "activity": return 1
+        case "gallery": return 2
+        case "debug": return 3
+        default: return 0
+        }
+        #else
+        return 0
+        #endif
     }
 
     #if DEBUG
@@ -56,6 +86,9 @@ struct ContentView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: action)
         }
         if env["FLASHBACK_TRIM_DEMO"] != nil { after(0.5) { Flashback.debugPresentSampleReport() } }
+        // Simulator only: arm mock recording (done above) then long-press the FAB → report with the
+        // rendered Gallery clip. Allow extra time for the first render before screenshotting.
+        if env["FLASHBACK_MOCK_REPORT_DEMO"] != nil { after(0.8) { Flashback.debugTriggerReport() } }
         if env["FLASHBACK_EMPTY_DEMO"] != nil { after(0.5) { Flashback.debugPresentEmptyReport() } }
         if env["FLASHBACK_JUST_ENABLED_DEMO"] != nil { after(0.5) { Flashback.debugPresentRecordingJustEnabled() } }
         if env["FLASHBACK_UNAVAILABLE_DEMO"] != nil { after(0.5) { Flashback.debugPresentReportUnavailable() } }
@@ -166,54 +199,65 @@ private struct HomeTab: View {
     }
 }
 
-// MARK: - Dummy UI tabs (to leave screen transitions in the recording)
+// MARK: - Content tabs (rich, promo-grade UI; also the source for the mock recording)
 
-/// Scrolling dummy list. Tab switches + scrolling leave motion in the recording.
-private struct DummyListTab: View {
-    private let symbols = ["star.fill", "bell.fill", "bolt.fill", "leaf.fill", "flame.fill",
-                           "drop.fill", "moon.fill", "heart.fill", "cloud.fill", "sun.max.fill"]
+/// Activity / notifications feed. Shares `ActivityFeedScreen` with the mock-clip renderer. Scrolling
+/// to the bottom fires a simulated "bug" dialog — the cue to launch a Flashback report.
+private struct ActivityTab: View {
+    @State private var showBug = false
+    /// Re-arm guard so the bug fires once per bottom-reach (and again after scrolling back up).
+    @State private var armed = true
+
     var body: some View {
-        NavigationStack {
-            List(0..<30, id: \.self) { i in
-                HStack(spacing: 12) {
-                    Image(systemName: symbols[i % symbols.count])
-                        .font(.title3)
-                        .foregroundStyle(Color(hue: Double(i % 10) / 10, saturation: 0.7, brightness: 0.9))
-                        .frame(width: 30)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Item \(i + 1)").font(.body)
-                        Text("Dummy row — scroll to see motion").font(.caption).foregroundStyle(.secondary)
+        GeometryReader { outer in
+            let viewportBottom = outer.frame(in: .global).maxY
+            ScrollView {
+                VStack(spacing: 0) {
+                    ActivityFeedScreen(width: outer.size.width)
+                    // Sentinel: when it scrolls into the visible area, the list has reached the end.
+                    GeometryReader { inner in
+                        Color.clear
+                            .onChange(of: inner.frame(in: .global).maxY) { maxY in
+                                if maxY <= viewportBottom + 24 {
+                                    if armed { armed = false; fireBug() }
+                                } else if maxY > viewportBottom + 160 {
+                                    armed = true   // scrolled back up; allow it to fire again
+                                }
+                            }
                     }
+                    .frame(height: 1)
                 }
-                .padding(.vertical, 4)
             }
-            .navigationTitle("List")
+            .overlay {
+                if showBug {
+                    BugErrorDialog(onDismiss: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { showBug = false }
+                    })
+                    .transition(.opacity)
+                }
+            }
+        }
+        .background(Color(uiColor: .systemBackground))
+    }
+
+    /// Pops the simulated bug shortly after the list settles at the bottom.
+    private func fireBug() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) { showBug = true }
         }
     }
 }
 
-/// Grid of colored cards. Scrolling produces motion.
-private struct DummyGalleryTab: View {
-    private let columns = [GridItem(.adaptive(minimum: 100), spacing: 12)]
+/// Photo gallery grid. Shares `GalleryScreen` verbatim with the mock-clip renderer, so what's on
+/// screen and what the report preview shows are the same UI.
+private struct GalleryTab: View {
     var body: some View {
-        NavigationStack {
+        GeometryReader { geo in
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 12) {
-                    ForEach(0..<24, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(hue: Double(i) / 24, saturation: 0.65, brightness: 0.92))
-                            .frame(height: 100)
-                            .overlay(
-                                Text("\(i + 1)")
-                                    .font(.title.bold())
-                                    .foregroundStyle(.white.opacity(0.9))
-                            )
-                    }
-                }
-                .padding(16)
+                GalleryScreen(width: geo.size.width)
             }
-            .navigationTitle("Gallery")
         }
+        .background(Color(uiColor: .systemBackground))
     }
 }
 

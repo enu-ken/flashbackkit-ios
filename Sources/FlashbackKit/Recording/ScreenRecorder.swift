@@ -94,6 +94,19 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// hand-off is underway, and tells the watchdog to skip stall checks during the restart gap.
     private var isRestartingForOrientation = false
 
+    #if DEBUG
+    /// DEBUG: provider supplying a mock clip URL for Simulator demos/promos (set via
+    /// `Flashback.enableSimulatorMockRecording`). When set, the recorder runs in **mock-recording
+    /// mode**: it reports available + recording, and `exportBufferedClip()` returns this provider's
+    /// clip instead of a (nonexistent) ReplayKit buffer — so the real FAB long-press → progress
+    /// toast → report → trim path runs unchanged on the Simulator, where ReplayKit emits no frames.
+    var debugMockClipProvider: (() async throws -> URL)?
+    /// DEBUG: whether mock recording is currently armed (the mock analogue of `captureConfirmed`).
+    private var debugMockActive = false
+    /// DEBUG: whether mock-recording mode is configured (a provider has been installed).
+    private var isMockRecording: Bool { debugMockClipProvider != nil }
+    #endif
+
     /// Whether screen recording is available (false on Simulator, during a call, while
     /// another app is recording, etc.). There is no permission API to query in advance,
     /// so the settings screen's permission display relies on this availability.
@@ -107,10 +120,13 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// (This is a different layer from `simctl io recordVideo` / QuickTime, which record the
     /// Sim screen host-side.)
     var isAvailable: Bool {
+        #if DEBUG
+        if isMockRecording { return true }     // Simulator demo mode: behave as if recording is supported.
+        #endif
         #if targetEnvironment(simulator)
-        false
+        return false
         #else
-        recorder.isAvailable
+        return recorder.isAvailable
         #endif
     }
 
@@ -118,7 +134,12 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     /// **confirmed** state, not `isCapturing` (in-flight): false before the permission
     /// dialog is answered (never optimistically true). The source of truth for the UI's
     /// recording indicator and fire-ability.
-    var isRecording: Bool { captureConfirmed }
+    var isRecording: Bool {
+        #if DEBUG
+        if isMockRecording { return debugMockActive }   // Simulator demo mode: armed = "recording".
+        #endif
+        return captureConfirmed
+    }
 
     /// Persistent hook called on `@MainActor` whenever the confirmed recording state
     /// changes (shared by all start paths): true on confirmed success, false on stop/failure.
@@ -191,6 +212,17 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     }
 
     func startBuffering(seconds: TimeInterval) {
+        #if DEBUG
+        if isMockRecording {                               // Simulator demo: arm without ReplayKit (no real session).
+            desiredBufferSeconds = seconds
+            wantsRecording = true
+            guard !debugMockActive else { return }         // idempotent
+            debugMockActive = true
+            onRecordingStateChanged?(true)                 // FAB → orange, settings → recording
+            onCaptureStarted?(true)                        // drives the just-enabled path when called via retryRecording
+            return
+        }
+        #endif
         guard !isCapturing else { return }                 // idempotent
         wantsRecording = true                              // intent to record (for auto-resume decisions)
         desiredBufferSeconds = seconds
@@ -281,6 +313,15 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
     }
 
     func stopBuffering() {
+        #if DEBUG
+        if isMockRecording {                               // Simulator demo: just disarm (no real session to tear down).
+            wantsRecording = false
+            let wasActive = debugMockActive
+            debugMockActive = false
+            if wasActive { onRecordingStateChanged?(false) }
+            return
+        }
+        #endif
         // Explicit stop: no auto-resume even after an interruption recovers.
         wantsRecording = false
         interruptedBySystem = false
@@ -309,6 +350,14 @@ final class ScreenRecorder: NSObject, RPScreenRecorderDelegate {
 
     /// Export the current buffer to a temp .mp4 and return its URL.
     func exportBufferedClip() async throws -> URL {
+        #if DEBUG
+        if isMockRecording {                               // Simulator demo: hand back the provider's mock clip.
+            guard debugMockActive, let provider = debugMockClipProvider else {
+                throw FlashbackError.recordingUnavailable
+            }
+            return try await provider()
+        }
+        #endif
         guard let ring, isCapturing else { throw FlashbackError.recordingUnavailable }
         return try await ring.export()
     }

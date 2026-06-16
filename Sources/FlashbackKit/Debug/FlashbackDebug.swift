@@ -3,6 +3,35 @@ import Foundation
 
 public extension Flashback {
 
+    /// DEBUG-only: enable Simulator mock-recording mode for demos / promo capture.
+    ///
+    /// On the Simulator, ReplayKit in-app capture **emits no frames**, so the floating button
+    /// stays gray and a long-press leads to the "recording unavailable" state. Calling this
+    /// (after `Flashback.start()`) puts the SDK into a mock mode that mirrors a real device:
+    /// the floating button shows the recording (orange) state and the genuine long-press →
+    /// progress toast → report → trim/share path runs, using a clip from `clipProvider`.
+    ///
+    /// `clipProvider` is invoked on every trigger to produce a fresh clip — e.g. render the
+    /// host app's own UI to a short video so the report preview looks like a real screen
+    /// recording. Intended for the Simulator; no-op in Release builds.
+    ///
+    /// - Parameter clipProvider: async source of a playable `.mp4` URL shown in the report's trimmer.
+    @MainActor
+    static func enableSimulatorMockRecording(clipProvider: @escaping () async throws -> URL) {
+        FlashbackController.shared.enableMockRecording(clipProvider: clipProvider)
+    }
+
+    /// DEBUG-only: run the normal trigger path (as if the floating button were long-pressed):
+    /// progress toast → export the buffered/mock clip → present the report.
+    ///
+    /// Useful with `enableSimulatorMockRecording` to exercise the full long-press → report → trim
+    /// path on the Simulator (and for screenshots), where a real long-press can't be synthesized.
+    /// Requires `Flashback.start()` first. No-op in Release builds.
+    @MainActor
+    static func debugTriggerReport() {
+        FlashbackController.shared.debugTriggerReport()
+    }
+
     /// DEBUG-only: present the report UI (preview + trimming) immediately with a synthetic
     /// sample clip.
     ///

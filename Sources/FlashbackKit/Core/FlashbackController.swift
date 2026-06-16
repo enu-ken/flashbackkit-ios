@@ -290,6 +290,25 @@ final class FlashbackController {
     #endif
 
     #if DEBUG
+    /// DEBUG only: enables Simulator mock-recording mode and arms it.
+    ///
+    /// On the Simulator ReplayKit emits no frames, so the FAB stays gray and a long-press lands on
+    /// the "recording unavailable" state. After this call the recorder reports recording is on (the
+    /// FAB turns orange) and the normal trigger path (long-press → progress toast → export →
+    /// ReportView with the trimmer) runs using a fresh clip from `clipProvider` each time. Call
+    /// after `start()`.
+    func enableMockRecording(clipProvider: @escaping () async throws -> URL) {
+        recorder.debugMockClipProvider = clipProvider
+        recorder.startBuffering(seconds: configuration.bufferSeconds)   // arm it now so the FAB shows the recording state
+    }
+
+    /// DEBUG only: runs the normal trigger path (progress toast → export the buffered/mock clip →
+    /// present the report), exactly as a FAB long-press would. Used for Simulator screenshots /
+    /// automated checks where a real long-press can't be synthesized.
+    func debugTriggerReport() {
+        handleTrigger()
+    }
+
     /// DEBUG only: presents the report UI directly with an arbitrary clip (to check the trim UX).
     /// Pass nil for `clipURL` to inspect the idle (recording-off) state.
     func debugPresentReport(clipURL: URL?) {
