@@ -50,18 +50,12 @@ reproduce it?" round-trips.
   the title and device info are baked into the exported file.
 - **One handoff point** — a single `onReport` callback delivers the trimmed clip, title,
   and device info. Everything downstream (AI, Slack, Jira, backend) is yours.
-- **Rotation & iPad ready** — rotate mid-recording and the clip still comes out upright
-  at the new orientation's native resolution; the floating button re-clamps itself on
-  rotation and iPad-multitasking resizes. Verified on iPhone (down to SE / iOS 16.4) and
-  iPad.
-- **Unfiltered by design — except passwords** — masking is the host app's job (see
-  [Privacy](#privacy--masking-sensitive-data)), but capture pauses automatically while a
-  secure text field is being edited.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/coverage-dark.svg">
-  <img src="docs/coverage-light.svg" alt="Left: rotate mid-recording and clips come out upright at each orientation's native resolution. Right: device coverage — iPhone SE (iOS 16.4), iPhone, and iPad with Split View; the floating button re-clamps on rotation and resizes" width="100%">
-</picture>
+- **Rotation & iPad ready** — clips come out upright at each orientation's native
+  resolution; verified on iPhone (down to SE / iOS 16.4) and iPad. Details in
+  [Known constraints](#known-constraints).
+- **Unfiltered by design — except passwords** — masking is the host app's job, but
+  capture pauses automatically during secure text entry. See
+  [Privacy](#privacy--masking-sensitive-data).
 
 ## How it works
 
@@ -98,12 +92,14 @@ Thermal state stayed nominal throughout:
 | UI frames | 58.7 fps, no gaps > 100 ms | 58.6 fps, no gaps > 100 ms | **zero jank** |
 | Disk (ring segments) | 0 MB | plateaus at ~75 MB / 9 files | **bounded at the retention window** |
 
-Why it stays this cheap: the ring lives **on disk, not in RAM** — old segments are
-deleted as new ones are written, so disk plateaus no matter how long you record (75 MB is
-the worst-case-content figure; typical screens compress far smaller). Frame capture runs
-in **replayd, out of process**, and ReplayKit only delivers frames **while the screen
-changes**, so a static screen costs near zero. And if the encoder ever falls behind,
-frames are dropped **from the clip** — the host app is never back-pressured.
+Why it stays this cheap:
+
+- **On disk, not in RAM** — old segments are deleted as new ones land, so disk plateaus
+  however long you record (75 MB is worst-case content; typical screens compress smaller).
+- **Out of process** — capture runs in replayd, and ReplayKit only delivers frames while
+  the screen changes, so a static screen costs near zero.
+- **Never back-pressured** — if the encoder falls behind, frames are dropped from the clip,
+  not from your app.
 
 Reproduce it on your own device: the Example app's Home tab has a live performance
 monitor with a screen-load generator and CSV export — see [Example app](#example-app).
@@ -148,9 +144,7 @@ To receive the finished report in your app, pass `onReport`:
 
 ```swift
 Flashback.start(onReport: { report in
-    // report.clipURL  — trimmed clip (temp file); nil when capture wasn't running
-    // report.title    — the tester's one-line note
-    // report.device   — model / OS / app version / locale …
+    // report = trimmed clip + title + device info (fields detailed below)
     myBackend.upload(report)
 })
 ```
@@ -215,10 +209,12 @@ public struct FlashbackReport: Sendable {
 }
 ```
 
+<details>
+<summary>Example: summarize with an LLM, then post to Slack</summary>
+
 ```swift
 Flashback.start(onReport: { report in
     Task {
-        // e.g. summarize with an LLM, then post to Slack with a link to the uploaded clip
         let summary = await llm.summarize(title: report.title, device: report.device)
         let link: String? = if let url = report.clipURL {
             await storage.upload(url)
@@ -229,6 +225,8 @@ Flashback.start(onReport: { report in
     }
 })
 ```
+
+</details>
 
 ### Required Info.plist key (only for "Save to Photos")
 
@@ -248,16 +246,15 @@ request). Not needed for "Save to Files":
 | `.shake` | handheld testing | shake the device twice (a single jolt won't fire) |
 | `.floatingButton` | fixed / kiosk / one-handed | tap = start recording, long-press = open report, drag = move |
 
-The floating button doubles as the recording-state indicator, and its gesture follows
-that state:
+The floating button doubles as the recording-state indicator, and its gesture follows that
+state:
 
-- **Grey (recording off)** — tap to start recording. The first time, a short priming
-  sheet explains the screen-recording permission, then iOS asks.
-- **Orange (recording on)** — long-press (0.4 s) to open the report; a short tap shows a
-  "long-press to open" hint instead of doing nothing.
-- **Drag** to reposition; it snaps to the nearest edge and can tuck away. It re-clamps
-  itself on rotation and window resizes (iPad multitasking), then returns to its saved
-  spot. VoiceOver: double-tap activates the state-appropriate action.
+- **Grey (off)** — tap to start; the first tap shows a one-time priming sheet, then iOS asks.
+- **Orange (on)** — long-press (0.4 s) to open the report; a short tap shows a "long-press
+  to open" hint.
+- **Drag** to reposition — snaps to the nearest edge, can tuck away, re-clamps on rotation
+  and iPad-multitasking resizes, then returns to its saved spot. VoiceOver: double-tap fires
+  the state-appropriate action.
 
 When the floating button is turned off, a one-time "shake twice to open" hint tells
 testers the shake trigger is still available.
@@ -312,9 +309,8 @@ Platform realities the design works *around*, not bugs:
 - **Performance monitor** — the Home tab card opens live memory / CPU / ring-disk /
   frame-pacing charts with a screen-load generator and CSV export (the numbers in
   [Performance](#performance) were captured with it).
-- **Simulator** — builds as-is (no signing). Recording doesn't work on the Simulator, so
-  the Example opts in via `runsOnSimulator: true` just to show the UI; your own app, with
-  the default `false`, will show nothing there.
+- **Simulator** — builds as-is (no signing). The Example sets `runsOnSimulator: true` just
+  to show the UI; recording itself needs a device (see [Configuration](#configuration)).
 - **Device** — needs code signing. Team IDs aren't committed, so set yours:
 
   ```sh
