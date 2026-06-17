@@ -117,14 +117,14 @@ https://github.com/enu-ken/flashbackkit-ios.git
 **Package.swift**:
 
 ```swift
-.package(url: "https://github.com/enu-ken/flashbackkit-ios.git", from: "0.12.0")
+.package(url: "https://github.com/enu-ken/flashbackkit-ios.git", from: "0.13.0")
 ```
 
 ```swift
 .target(name: "YourApp", dependencies: ["FlashbackKit"])
 ```
 
-Latest release: `0.12.0`. Pre-1.0 the public API may still change — pin an exact version
+Latest release: `0.13.0`. Pre-1.0 the public API may still change — pin an exact version
 if you need stability.
 
 ## Quick Start

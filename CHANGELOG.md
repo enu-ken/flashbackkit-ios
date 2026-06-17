@@ -7,6 +7,26 @@ the [Releases](https://github.com/enu-ken/flashbackkit-ios/releases) page.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions
 are pre-1.0 and bump the minor for each release.
 
+## [0.13.0] - 2026-06-17
+
+### Added
+- **Simulator mock-recording mode (DEBUG)** — ReplayKit can't capture on the Simulator, so
+  `Flashback.enableSimulatorMockRecording(clipProvider:)` lets the host feed a pre-rendered
+  clip and exercise the full trigger → export → report → trim → share flow there. Paired
+  with `Flashback.debugTriggerReport()` to fire a report programmatically. DEBUG-only and
+  inert unless a provider is set; never compiled into Release builds.
+- **Performance monitor in the Example app** — a live memory / CPU / ring-disk /
+  frame-pacing dashboard with a screen-load generator and CSV export, used to capture the
+  SDK's measured recording overhead. Backed by a new DEBUG-only `Flashback.debugIsRecording`.
+
+### Documentation
+- **README overhaul** — a new Performance section with measured 10-minute-soak numbers and
+  charts; ring-buffer, flow and device-coverage diagrams; real-UI screenshots; rotation &
+  iPad coverage. Prose then deduplicated and tightened for readability.
+- Documented that recording **can't run on the iOS Simulator** (and why), and that the
+  Japanese UI requires the host app to declare `ja` in its localizations.
+- Repository URLs updated for the `kensuke242424` → `enu-ken` GitHub username change.
+
 ## [0.12.0] - 2026-06-12
 
 ### Added
@@ -182,6 +202,8 @@ are pre-1.0 and bump the minor for each release.
   trim + title it, and hand a `FlashbackReport` to your `onReport` callback. Zero dependencies,
   iOS 16+, Swift 6.
 
+[0.13.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.13.0
+[0.12.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.12.0
 [0.11.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.11.0
 [0.10.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.10.0
 [0.9.0]: https://github.com/enu-ken/flashbackkit-ios/releases/tag/0.9.0
